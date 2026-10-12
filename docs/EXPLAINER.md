@@ -108,7 +108,7 @@ Instead of relying on a traditional inbound connection, we exploit how NAT firew
 
 By punching a hole from the inside out simultaneously, both firewalls are convinced that the incoming packets are legitimate responses to their own outbound requests—turning two blocked connections into a direct, bidirectional P2P tunnel.
 
-## Questions
+# Questions
 
 Ever since this project caught my interest, I've asked a lot of questions and tried to understand and make sense of many things about networking.
 I thought it would be a good idea to compile some of them here with their corresponding gemini responses.
