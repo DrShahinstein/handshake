@@ -110,8 +110,54 @@ By punching a hole from the inside out simultaneously, both firewalls are convin
 
 ## Questions
 
-Ever since this project caught my interest, I've asked a lot of questions and tried to understand and make sense of many things. I've jotted down some notes so they wouldn't get lost in the shuffle. I thought it would be a good idea to compile them here.
+Ever since this project caught my interest, I've asked a lot of questions and tried to understand and make sense of many things about networking.
+I thought it would be a good idea to compile some of them here with their corresponding gemini responses.
 
-1. I struggle grasping the phenomenon of peer-to-peer connection being possible despite the CGNAT wall, however http connections being not possible. What about ssh connection? I mean what causes the difference?
-> https://share.google/aimode/4DYnVX49c7EDLPnId
+**Q1:** I struggle grasping the phenomenon of peer-to-peer connection being possible despite the CGNAT wall, however http connections being not possible. What about ssh connection? I mean what causes the difference?
+
+<details>
+<summary>Gemini response</summary>
+
+The fundamental difference does not come down to the type of data or the port number; it comes down to who speaks first and how firewalls track conversations.
+
+Under a CGNAT (Carrier-Grade NAT) system, your Internet Service Provider (ISP) places thousands of homes behind a single public IP address. This structure creates two entirely different architectural behaviors. [1, 2, 3] 
+
+### The Cheat Sheet: Why One Works and the Other Fails
+
+| Connection Type | Who Initiates? | What Happens at the CGNAT Firewall? | Does it work under CGNAT? |
+|---|---|---|---|
+| Incoming HTTP / SSH | The Outside Internet | Blocked. The firewall receives an unexpected packet and has no idea which home computer to send it to. | ❌ No |
+| P2P Hole Punching | Both sides simultaneously | Allowed. Both routers record an outbound request, creating temporary "expected reply" windows that match perfectly. | Host-dependent (usually 🚀 Yes) |
+
+------------------------------
+### 1. Why HTTP and SSH Connections Fail (Inbound Listening)
+When you run a standard web server (HTTP) or an SSH server, your computer opens a port and listens silently, waiting for someone on the internet to talk to it. [4] 
+If a client out on the internet tries to connect to you, they must target your ISP's public CGNAT IP address. When that TCP handshake packet hits the ISP's massive core router, the router looks at it and asks: "Which of the 5,000 households sharing this IP address is this packet meant for?" [2] 
+Because you never sent an outbound packet to that specific internet client first, the ISP's firewall has no translation rule mapped for it. The router does not know where to direct it, safety protocols kick in, and the packet is immediately dropped. Traditional port forwarding cannot fix this because you do not own your ISP's routers. [2, 5] 
+### 2. Why P2P Hole Punching Works (Simultaneous Outbound)
+Firewalls are heavily biased: they inherently trust traffic that starts inside your home and goes outward.
+Hole punching exploits this trust by turning an inbound connection into a precisely timed sequence of outbound requests: [6, 7] 
+
+   1. The Outbound Maps: Peer A sends a packet out to Peer B's public IP. At the exact same time, Peer B sends a packet out to Peer A's public IP. [6, 7] 
+   2. The "Holes" Open: When Peer A's packet passes through its CGNAT gateway, the gateway notes: "Okay, internal machine X is expecting a response from Peer B. I will temporarily allow traffic from Peer B back through this specific port." [4, 7] 
+   3. The Connection Crosses: When Peer B's packet arrives at Peer A's gateway, the gateway does not see it as an unsolicited attack. It sees it as the expected reply to the outbound packet Peer A just fired off. The gateway allows it right through. [7] 
+
+By tricking both firewalls into thinking they are merely receiving replies to outbound requests, a direct connection is successfully established right through the CGNAT wall. [6, 8]
+
+### So, can you use Hole Punching for SSH?
+Yes, absolutely. You cannot do it natively with a standard ssh user@ip command, but modern network tooling uses this exact P2P hole-punching trick to bypass CGNAT for SSH and web traffic:
+
+Modern mesh VPN overlays—most notably [Tailscale](https://tailscale.com/) and [ZeroTier](https://www.zerotier.com/)—use STUN and advanced hole-punching techniques to link devices directly. If you install Tailscale on a remote server behind CGNAT and on your laptop, they will punch a hole through the CGNAT wall using UDP. Once that P2P tunnel is open, you can securely route your standard SSH or HTTP traffic directly through it. [1, 7, 9] 
+
+> [1] [https://pinggy.io](https://pinggy.io/blog/how_nat_traversal_works/) <br />
+> [2] [https://goteleport.com](https://goteleport.com/blog/remote-access-nat-cgnat-firewalls/) <br />
+> [3] [https://p2ns.space](https://p2ns.space/learn/p2p) <br />
+> [4] [https://www.youtube.com](https://www.youtube.com/watch?v=TiMeoQt3K4g&t=192) <br />
+> [5] [https://www.infosecinstitute.com](https://www.infosecinstitute.com/resources/hacking/udp-hole-punching/) <br />
+> [6] [https://arxiv.org](https://arxiv.org/html/2510.27500v1) <br />
+> [7] [https://heartit.tech](https://heartit.tech/p2p-from-scratch-part-1-the-internet-is-hostile/) <br />
+> [8] [https://natchecker.com](https://natchecker.com/blog/nat-traversal) <br />
+> [9] [https://superuser.com](https://superuser.com/questions/885140/how-to-use-udp-hole-punching-for-a-ssh-tunnel-session) <br />
+
+</details>
 
