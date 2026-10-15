@@ -72,10 +72,34 @@ So, it is preferrable in many ways for its flexibility.
 
 **Q1:** Can peerB accidentally connect to another service already running on port 6969 in their own LAN while trying the candidate 192.168.1.69:6969 address?
 
-Yes, this is possible. To prevent false connections, we would perform an application layer handshake.
+Yes, this is possible. To prevent false connections, we'll rely on the special sign of our framing protocol. It is actually just some magic bytes. Check out the protocol section below.
 
-It would roughly look like a communication like this:  
-\+: Are you also from the handshake program?  
+So, it would roughly look like a communication like this:  
+\+: Do you know what "HSH" means?  
 \-:  
-\+: Okay you are not.  
+\+: Yeah you don't. I think you are my television by the way.    
+
+# Protocol
+
+### Ascii Diagram
+
+```
+Frame header: 13 bytes total
+
++------------------+------------------+------------------+----------------------+--------------------+--------------------+
+| Magic Bytes (3B) | Frame Type (1B)  | Status Code (1B) | Sequence/Req ID (4B) | Payload Length(4B) | Payload (Variable) |
++------------------+------------------+------------------+----------------------+--------------------+--------------------+
+```
+
+### Table View
+
+| Field | Size | Type | Description |
+| :--- | :--- | :--- | :--- |
+| **Magic Bytes** | 3 Bytes | `[u8; 3]` | Must be `0x48 0x53 0x48` ("HSH"). Used for protocol identification. |
+| **Frame Type** | 1 Byte | `u8` | Identifies the intent of the packet. Will determine what to expect from the payload. |
+| **Status Code** | 1 Byte | `u8` | Execution status (e.g., `0x00` = Success, `0x01` = Error). |
+| **Sequence ID** | 4 Bytes | `u32` | Packet indexing |
+| **Payload Length**| 4 Bytes | `u32` | Used to know where to stop reading the incoming payload. |
+| **Payload** | Variable | `Vec<u8>` | Transmitted data as raw bytes. Can be anything depending on our purpose. |
+
 
