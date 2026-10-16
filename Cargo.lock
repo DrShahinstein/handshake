@@ -503,6 +503,7 @@ dependencies = [
  "derive-new",
  "num_enum",
  "ratatui",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
