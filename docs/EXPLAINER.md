@@ -161,3 +161,22 @@ Modern mesh VPN overlays—most notably [Tailscale](https://tailscale.com/) and 
 
 </details>
 
+---
+
+**Q2:** What happens if multiple peers try to connect to the listening port, or if I accidentally share the link with more than one person?
+
+<details>
+<summary>Explanation</summary>
+
+By definition, p2p connection is 1-to-1. This scenario is going to be managed entirely by the state machine:  
+
+1. The first peer to successfully complete the protocol handshake secures the p2p connection.
+2. Once connected, the host's state machine transitions from `Listening` to `Connected`.
+3. Any other requests from other peers are immediately rejected with a `Status::Busy` frame.
+
+#### Something to Notice
+
+By design of TCP/IP architecture, establishing a connection natively requires one party to act as a **passive open** (listener) and the other as an **active open** (initiator). We are generally accustomed to viewing the listener as a traditional server that handles multiple incoming requests. In our P2P model, however, this listener role is merely a temporary bootstrapping mechanism to allow two nodes to find each other. The server-client distinction vanishes the millisecond the handshake completes, leaving a fully symmetric 1-to-1 tunnel: `PeerA <--> PeerB`
+
+</details>
+
