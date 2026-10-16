@@ -1,4 +1,6 @@
+use handshake::cli;
+
 fn main() {
-  println!("Hello, world!");
+  cli::launch().unwrap_or_else(|e| eprintln!("{e}"));
 }
 
