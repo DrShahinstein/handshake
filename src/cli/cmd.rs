@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{Result, cli};
 
 pub fn listen(port: u16) -> Result<()> {
   println!("entered listen with port: {}", port);
@@ -11,7 +11,7 @@ pub fn connect(target: &str) -> Result<()> {
 }
 
 pub fn help() -> Result<()> {
-  println!("help message");
+  print!("{}", cli::HELP_MSG);
   Ok(())
 }
 
