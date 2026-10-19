@@ -16,7 +16,8 @@ pub fn help() -> Result<()> {
 }
 
 pub fn version() -> Result<()> {
-  println!("version 0.1.0");
+  let version = env!("CARGO_PKG_VERSION");
+  println!("v{}", version);
   Ok(())
 }
 
