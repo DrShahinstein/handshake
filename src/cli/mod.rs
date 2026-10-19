@@ -21,3 +21,11 @@ pub fn launch() -> Result<()> {
   }
 }
 
+pub const HELP_MSG: &str = "\
+Usage: handshake <command> <argument>
+
+Commands:
+- listen <port:6969>
+- connect <socket>
+"
+;
