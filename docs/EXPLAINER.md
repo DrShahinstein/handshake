@@ -108,6 +108,16 @@ Instead of relying on a traditional inbound connection, we exploit how NAT firew
 
 By punching a hole from the inside out simultaneously, both firewalls are convinced that the incoming packets are legitimate responses to their own outbound requests—turning two blocked connections into a direct, bidirectional P2P tunnel.
 
+### 3. UDP
+
+We don't want to use TCP packets while punching the hole, because TCP has a strict, built-in three-way handshake mechanism. CGNAT routers control this system more strictly and rigorously.
+
+By using UDP, we will have a more flexible option. UDP doesn't have a complex handshake method. It's simply like "throwing data." However, we also need the uninterrupted and clear data flow that TCP provides. To solve this, we will utilize the sequence IDs included in our [protocol](ARCHITECTURE.md#protocol) and index the packets. This way, we'll still be able to communicate without data loss.
+
+In other words, we'll take advantage of UDP's flexibility while adding TCP's reliability ourselves. We will communicate using this combination.
+
+It's also worth noting that STUN servers generally expect UDP requests. 
+
 # Questions
 
 Ever since this project caught my interest, I've asked a lot of questions and tried to understand and make sense of many things about networking.
@@ -176,7 +186,7 @@ By definition, p2p connection is 1-to-1. This scenario is going to be managed en
 
 #### Something to Notice
 
-By design of TCP/IP architecture, establishing a connection natively requires one party to act as a **passive open** (listener) and the other as an **active open** (initiator). We are generally accustomed to viewing the listener as a traditional server that handles multiple incoming requests. In our P2P model, however, this listener role is merely a temporary bootstrapping mechanism to allow two nodes to find each other. The server-client distinction vanishes the millisecond the handshake completes, leaving a fully symmetric 1-to-1 tunnel: `PeerA <--> PeerB`
+By design of transport layer architecture, establishing a connection natively requires one party to act as a **passive open** (listener) and the other as an **active open** (initiator). We are generally accustomed to viewing the listener as a traditional server that handles multiple incoming requests. In our p2p model, however, this listener role is merely a temporary bootstrapping mechanism to allow two nodes to find each other. The server-client distinction vanishes the millisecond the handshake completes, leaving a fully symmetric 1-to-1 tunnel: `PeerA <--> PeerB`
 
 </details>
 
