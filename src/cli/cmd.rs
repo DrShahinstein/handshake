@@ -15,25 +15,7 @@ pub fn listen(port: u16) -> Result<()> {
     println!("> skipped nat discovery");
   } 
 
-  let mut buf = [0u8; 256];
-
-  let peer = loop {
-    let (bytes, src) = socket.recv_from(&mut buf)?;
-    if bytes < 7 {
-      continue;
-    }
-
-    let payload = &buf[..bytes];
-
-    if &payload[0..7] != b"HSH_SYN" {
-      socket.send_to(b"i don't speak this language", src)?;
-      continue;
-    }
-
-    socket.send_to(b"HSH_ACK", src)?;
-
-    break src;
-  };
+  let peer = net::listen::start(&socket)?;
 
   net::session::start(socket, peer)?;
 
