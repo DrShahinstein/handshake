@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod net;
 
 use thiserror::Error;
 
