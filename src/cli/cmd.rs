@@ -1,7 +1,21 @@
-use crate::{Result, cli};
+use crate::{Result, cli, net};
 
 pub fn listen(port: u16) -> Result<()> {
-  println!("entered listen with port: {}", port);
+  let _socket = net::listen::_0_0_0_0(port)?;
+  let lan_ip = net::listen::get_lan_ip();
+
+  println!("> listening on 0.0.0.0:{port}");
+  println!("  * loopback: 127.0.0.1:{port}");
+
+  let Some(ip) = lan_ip else {
+    println!("  ! lan: offline");
+    println!("> skipped nat discovery");
+    return Ok(());
+  };
+
+  println!("  * lan: {ip}:{port}");
+  println!("> discovery here...");
+
   Ok(())
 }
 
