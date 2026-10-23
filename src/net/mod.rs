@@ -23,16 +23,15 @@ pub enum Status {
 #[repr(u8)]
 #[derive(Copy,Clone,PartialEq,IntoPrimitive,TryFromPrimitive)]
 pub enum FrameType {
-  Syn,
-  Ack,
+  Syn=1,
+  Ack=2,
 }
 
 #[derive(new)]
 pub struct Frame {
-  pub ftype: FrameType,
+  pub frame_type: FrameType,
   pub status: Status,
   pub seq_id: u32,
-  pub len: u32,
   pub payload: Vec<u8>
 }
 
@@ -40,12 +39,17 @@ impl Frame {
   pub const MAGIC_BYTES: &[u8;3] = b"HSH";
   pub const HEADER_SIZE: usize   = 13;
 
-  pub fn to_bytes(&self) -> Vec<u8> {
-    let payload_len = self.payload.len() as u32;
-    let mut bytes   = Vec::with_capacity(Self::HEADER_SIZE + self.payload.len());
+  pub fn payload_len(&self) -> u32 {
+    self.payload.len() as u32
+  }
 
-    bytes.extend_from_slice(Self::MAGIC_BYTES);             // 3B: Magic Bytes
-    bytes.push(self.ftype.into());                          // 1B: Frame Type
+  pub fn to_bytes(&self) -> Vec<u8> {
+    let n           = Self::HEADER_SIZE;
+    let payload_len = self.payload_len();
+    let mut bytes   = Vec::with_capacity(n+self.payload.len());
+
+    bytes.extend_from_slice(Self::MAGIC_BYTES);             // 3B: Magic Bytes (HSH)
+    bytes.push(self.frame_type.into());                     // 1B: Frame Type
     bytes.push(self.status.into());                         // 1B: Status Code
     bytes.extend_from_slice(&self.seq_id.to_be_bytes());    // 4B: Sequence ID
     bytes.extend_from_slice(&payload_len.to_be_bytes());    // 4B: Payload Length
@@ -53,6 +57,37 @@ impl Frame {
 
     bytes
   }
+
+  pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+    let n          = Self::HEADER_SIZE;
+    let bytes_len  = bytes.len();
+
+    if bytes_len < n {
+      return None;
+    }
+    if &bytes[0..3] != Self::MAGIC_BYTES {
+      return None;
+    }
+
+    let frame_type  = FrameType::try_from(bytes[3]).ok()?;
+    let status      = Status::try_from(bytes[4]).ok()?;
+    let seq_id      = u32::from_be_bytes(bytes[5..9].try_into().ok()?);
+    let payload_len = u32::from_be_bytes(bytes[9..13].try_into().ok()?);
+    let pl          = payload_len as usize;
+
+    if bytes_len < n+pl {
+      return None;
+    }
+
+    let payload = bytes[n..(n+pl)].to_vec();
+
+    Some(Self {
+      frame_type,
+      status,
+      seq_id,
+      payload,
+    })
+  } 
 }
 
 pub fn send_frame(socket: &UdpSocket, frame: &Frame) -> Result<()> {
@@ -61,7 +96,7 @@ pub fn send_frame(socket: &UdpSocket, frame: &Frame) -> Result<()> {
   Ok(())
 }
 
-pub fn send_frame_to(s: &UdpSocket, f: &Frame, to: &SocketAddr) -> Result<()> {
+pub fn send_frame_to(s: &UdpSocket, f: &Frame, to: SocketAddr) -> Result<()> {
   let b = f.to_bytes();
   s.send_to(&b, to)?;
   Ok(())
