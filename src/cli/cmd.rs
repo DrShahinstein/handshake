@@ -23,8 +23,7 @@ pub fn listen(port: u16) -> Result<()> {
 }
 
 pub fn connect(target: &str) -> Result<()> {
-  net::connect::start(target)?;
-  Ok(())
+  net::connect::start(target)
 }
 
 pub fn help() -> Result<()> {
