@@ -5,7 +5,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum HshError {
-  #[error("{0}")]
+  #[error("IO Error: {0}")]
   IoErr(#[from] std::io::Error),
 
   #[error("No such command.")]
