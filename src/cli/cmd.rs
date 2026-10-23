@@ -9,7 +9,14 @@ pub fn listen(port: u16) -> Result<()> {
 
   if let Some(ip) = lan_ip {
     println!("  * lan: {ip}:{port}");
-    println!("> discovery here...");
+
+    let public_endpoint = net::stun::discover(&socket).ok();
+
+    if let Some(address) = public_endpoint {
+      println!("> discovered public nat endpoint: {address} (DEV)");
+    } else {
+      println!("> nat discovery failed.");
+    }
   } else {
     println!("  ! lan: offline");
     println!("> skipped nat discovery");
