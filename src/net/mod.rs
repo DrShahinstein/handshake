@@ -13,6 +13,8 @@ use derive_new::new;
 use crate::Result;
 use std::net::{UdpSocket, SocketAddr};
 
+pub const INITIAL_SEQ_ID: u32 = 1;
+
 #[repr(u8)]
 #[derive(Copy,Clone,PartialEq,IntoPrimitive,TryFromPrimitive)]
 pub enum Status {
@@ -38,6 +40,19 @@ pub struct Frame {
 impl Frame {
   pub const MAGIC_BYTES: &[u8;3] = b"HSH";
   pub const HEADER_SIZE: usize   = 13;
+
+  pub fn syn() -> Self {
+    Self::new(
+      FrameType::Syn,
+      Status::OK,
+      INITIAL_SEQ_ID,
+      vec![],
+    )
+  }
+
+  pub fn ack(seq_id: u32) -> Self {
+    Self::new(FrameType::Ack, Status::OK, seq_id, vec![])
+  }
 
   pub fn payload_len(&self) -> u32 {
     self.payload.len() as u32
@@ -89,7 +104,7 @@ impl Frame {
       seq_id,
       payload,
     })
-  } 
+  }
 }
 
 pub fn send_frame(socket: &UdpSocket, frame: &Frame) -> Result<()> {
