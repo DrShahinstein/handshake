@@ -1,25 +1,17 @@
 use std::io;
 use std::net::{UdpSocket, SocketAddr};
+use crate::net::{self, Frame, FrameType};
+use crate::Result;
 
-pub fn start(socket: &UdpSocket) -> io::Result<SocketAddr> {
-  let mut buf = [0u8; 256];
-
+pub fn start(socket: &UdpSocket) -> Result<SocketAddr> {
   loop {
-    let (bytes, src) = socket.recv_from(&mut buf)?;
-    if bytes < 7 {
-      continue;
+    let (f, src) = net::recv_frame(socket)?;
+
+    if f.frame_type == FrameType::Syn {
+      let ack = Frame::ack(f.seq_id);
+      net::send_frame_to(socket, &ack, src)?;
+      return Ok(src);
     }
-
-    let payload = &buf[..bytes];
-
-    if &payload[0..7] != b"HSH_SYN" {
-      socket.send_to(b"i don't speak this language", src)?;
-      continue;
-    }
-
-    socket.send_to(b"HSH_ACK", src)?;
-
-    break Ok(src);
   }
 }
 
