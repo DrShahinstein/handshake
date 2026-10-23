@@ -44,9 +44,11 @@ impl Frame {
   }
 
   pub fn to_bytes(&self) -> Vec<u8> {
-    let n           = Self::HEADER_SIZE;
+    let header_len  = Self::HEADER_SIZE;
     let payload_len = self.payload_len();
-    let mut bytes   = Vec::with_capacity(n+self.payload.len());
+    let total_len   = header_len + (payload_len as usize);
+
+    let mut bytes = Vec::with_capacity(total_len);
 
     bytes.extend_from_slice(Self::MAGIC_BYTES);             // 3B: Magic Bytes (HSH)
     bytes.push(self.frame_type.into());                     // 1B: Frame Type
@@ -59,10 +61,10 @@ impl Frame {
   }
 
   pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-    let n          = Self::HEADER_SIZE;
+    let header_len = Self::HEADER_SIZE;
     let bytes_len  = bytes.len();
 
-    if bytes_len < n {
+    if bytes_len < header_len {
       return None;
     }
     if &bytes[0..3] != Self::MAGIC_BYTES {
@@ -73,13 +75,13 @@ impl Frame {
     let status      = Status::try_from(bytes[4]).ok()?;
     let seq_id      = u32::from_be_bytes(bytes[5..9].try_into().ok()?);
     let payload_len = u32::from_be_bytes(bytes[9..13].try_into().ok()?);
-    let pl          = payload_len as usize;
+    let total_len   = header_len + (payload_len as usize);
 
-    if bytes_len < n+pl {
+    if bytes_len < total_len {
       return None;
     }
 
-    let payload = bytes[n..(n+pl)].to_vec();
+    let payload = bytes[header_len..total_len].to_vec();
 
     Some(Self {
       frame_type,
@@ -102,7 +104,16 @@ pub fn send_frame_to(s: &UdpSocket, f: &Frame, to: SocketAddr) -> Result<()> {
   Ok(())
 }
 
-pub fn recv_frame(_socket: &UdpSocket) -> Result<()> {
-  unimplemented!()
+pub fn recv_frame(socket: &UdpSocket) -> Result<(Frame, SocketAddr)> {
+  let mut buf = [0u8; 2048];
+
+  loop {
+    let (bytes, src)   = socket.recv_from(&mut buf)?;
+    let incoming_frame = &buf[..bytes];
+    
+    if let Some(frame) = Frame::from_bytes(&incoming_frame) {
+      return Ok((frame, src));
+    }
+  }
 }
 
