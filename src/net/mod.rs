@@ -8,6 +8,7 @@ pub mod listen;
 pub mod connect;
 pub mod session;
 pub mod stun;
+pub mod candidate; 
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use derive_new::new;
