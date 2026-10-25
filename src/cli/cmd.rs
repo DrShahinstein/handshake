@@ -13,7 +13,10 @@ pub fn listen(port: u16) -> Result<()> {
     let public_endpoint = net::stun::discover(&socket).ok();
 
     if let Some(address) = public_endpoint {
-      println!("> discovered public nat endpoint: {address} (DEV)");
+      let base64_link = net::stun::link_from(address);
+
+      println!("> discovered public nat endpoint: {address}");
+      println!("> share this link with your peer: {base64_link}");
     } else {
       println!("> nat discovery failed.");
     }
