@@ -1,32 +1,13 @@
-use crate::{Result, cli, net};
+use crate::{Result, cli, net::{self, candidate::Candidates}};
 
 pub fn listen(port: u16) -> Result<()> {
   let socket = net::listen::_0_0_0_0(port)?;
-  let lan_ip = net::listen::get_lan_ip();
-
   println!("> listening on 0.0.0.0:{port}");
-  println!("  * loopback: 127.0.0.1:{port}");
 
-  if let Some(ip) = lan_ip {
-    println!("  * lan: {ip}:{port}");
-
-    let public_endpoint = net::stun::discover(&socket).ok();
-
-    if let Some(address) = public_endpoint {
-      let base64_link = net::stun::link_from(address);
-
-      println!("> discovered public nat endpoint: {address}");
-      println!("> share this link with your peer: {base64_link}");
-    } else {
-      println!("> nat discovery failed.");
-    }
-  } else {
-    println!("  ! lan: offline");
-    println!("> skipped nat discovery");
-  } 
+  let candidates = Candidates::gather(&socket, port);
+  candidates.show();
 
   let peer = net::listen::start(&socket)?;
-
   net::session::start(socket, peer)?;
 
   Ok(())
