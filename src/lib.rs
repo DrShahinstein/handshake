@@ -13,6 +13,9 @@ pub enum HshError {
 
   #[error("Expected argument.")]
   CliNoArg,
+
+  #[error("Invalid handshake link.")]
+  InvalidLink,
 }
 
 pub type Result<T> = std::result::Result<T, HshError>;
