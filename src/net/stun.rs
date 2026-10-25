@@ -66,8 +66,10 @@ pub fn discover(socket: &UdpSocket) -> Result<SocketAddr> {
 
 pub fn link_from(addr: SocketAddr) -> String {
   let addr_str = addr.to_string();
-  let encoded = URL_SAFE_NO_PAD.encode(addr_str.as_bytes());
-  format!("handshake://{encoded}")
+  let encoded  = URL_SAFE_NO_PAD.encode(addr_str.as_bytes());
+  let uri      = format!("handshake://{encoded}");
+
+  format!("\x1b[4;36m{uri}\x1b[0m")
 }
 
 /* - - - */
