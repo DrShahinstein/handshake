@@ -13,6 +13,7 @@ use std::net::{UdpSocket, SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
 use std::time::Duration;
 use std::io::{Error, ErrorKind};
 use crate::Result;
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 
 // see: RFC 5389
 const MAGIC_COOKIE: u32 = 0x2112_A442;
@@ -62,6 +63,14 @@ pub fn discover(socket: &UdpSocket) -> Result<SocketAddr> {
 
   Err(Error::new(ErrorKind::TimedOut, "All STUN servers failed to respond").into())
 }
+
+pub fn link_from(addr: SocketAddr) -> String {
+  let addr_str = addr.to_string();
+  let encoded = URL_SAFE_NO_PAD.encode(addr_str.as_bytes());
+  format!("handshake://{encoded}")
+}
+
+/* - - - */
 
 fn parse_stun_response(buf: &[u8]) -> Option<SocketAddr> {
   if buf.len() < 20 {
