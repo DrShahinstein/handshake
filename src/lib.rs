@@ -16,6 +16,9 @@ pub enum HshError {
 
   #[error("Invalid handshake link.")]
   InvalidLink,
+
+  #[error("Handshake failed: expected ACK frame.")]
+  ExpectedAck,
 }
 
 pub type Result<T> = std::result::Result<T, HshError>;
