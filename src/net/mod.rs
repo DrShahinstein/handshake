@@ -16,6 +16,7 @@ use crate::Result;
 use std::net::{UdpSocket, SocketAddr};
 
 pub const INITIAL_SEQ_ID: u32 = 1;
+pub const LINK_PREFIX: &str   = "handshake://";
 
 #[repr(u8)]
 #[derive(Copy,Clone,PartialEq,IntoPrimitive,TryFromPrimitive)]
