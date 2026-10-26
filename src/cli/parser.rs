@@ -18,7 +18,6 @@ pub fn run() -> Result<cli::Command> {
 
     "connect" => {
       let target = args.next().ok_or(HshError::CliNoArg)?;
-      let target = resolve_target(&target);
       Ok(cli::Command::Connect {target})
     }
 
@@ -27,23 +26,3 @@ pub fn run() -> Result<cli::Command> {
     __other__ => Err(HshError::CliNoCmd)
   }
 }
-
-fn resolve_target(target: &str) -> String {
-  let default_port = crate::cli::DEFAULT_PORT;
-
-  if let Ok(port) = target.parse::<u16>() {
-    return format!("127.0.0.1:{port}");
-  }
-  if target == "localhost" || target == "loopback" {
-    return format!("127.0.0.1:{default_port}");
-  }
-  if let Some(port) = target.strip_prefix("localhost:").or_else(|| target.strip_prefix("loopback:")) {
-    return format!("127.0.0.1:{port}");
-  }
-  if !target.contains(':') {
-    return format!("{target}:{default_port}");
-  }
-
-  target.to_string()
-}
-
