@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{Result, HshError};
 use crate::net::{self, Frame, FrameType};
 use std::net::UdpSocket;
 
@@ -11,11 +11,11 @@ pub fn start(target: &str) -> Result<()> {
 
   let (f, src) = net::recv_frame(&socket)?;
 
-  if f.frame_type == FrameType::Ack {
-    net::session::start(socket, src)?;
-  } else {
-    eprintln!("Could not handshake.");
+  if f.frame_type != FrameType::Ack {
+    return Err(HshError::ExpectedAck);
   }
+
+  net::session::start(socket, src)?;
 
   Ok(())
 }
