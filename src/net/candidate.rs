@@ -52,14 +52,14 @@ impl Candidates {
 
     let encoded = URL_SAFE_NO_PAD.encode(addrs_str.as_bytes());
 
-    format!("handshake://{encoded}")
+    format!("{}{}", net::LINK_PREFIX, encoded)
   }
 
   pub fn from_base64(link: &str) -> Result<Vec<SocketAddr>> {
     let raw = link.trim();
 
     let clean_link = raw
-      .strip_prefix("handshake://")
+      .strip_prefix(net::LINK_PREFIX)
       .ok_or(HshError::InvalidLink)?;
 
     let decoded_bytes = URL_SAFE_NO_PAD
