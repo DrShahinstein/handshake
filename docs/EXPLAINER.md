@@ -283,6 +283,36 @@ This places the responsibility on us to perform STUN discovery for both sides. A
 
 </details>
 
+---
+
+**Q4:** Can PeerB accidentally punch into some other service already running on port 6969 in their own LAN while probing the `192.168.1.69:6969` candidate?
+
+<details>
+<summary>Explanation</summary>
+
+Yes, this is possible. To prevent false connections, we rely on the magic bytes in our [protocol](ARCHITECTURE.md#protocol). A service that is not `handshake` will not speak it.
+
+Roughly, it looks like this:
+
+```
++: Do you know what "HSH" means?
+-:
++: Yeah you don't. I think you are my television by the way.
+```
+
+</details>
+
+---
+
+**Q5:** Why not let one peer listen while the other punches?
+
+<details>
+<summary>Explanation</summary>
+
+Because the listener never sends anything first. Its NAT has no mapping for the peer and no filter entry for the incoming probe, so the packet is dropped at the router. Listening only works when the listener is already reachable: loopback, the same LAN, or a public IP. Two peers behind NAT both have to send, which is why both sides run `handshake punch`.
+
+</details>
+
 # References to Note
 * https://pdos.csail.mit.edu/papers/p2pnat.pdf
 * https://tailscale.com/blog/how-nat-traversal-works
