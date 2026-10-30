@@ -137,14 +137,70 @@ In short: **Relay servers come with a cost.**
 
 The core motivation of `handshake` is to establish a pure, casual, zero-cost P2P connection using only the resources already available to everyday internet users. If two peers cannot punch a direct hole through their respective firewalls, we gracefully accept the failure rather than masking it behind a middleman.
 
-### What is Determinant in the Success of P2P Connection?
-This is independent of geographic boundaries, physical distance, or ISP branding. Instead, it is primarily determined by the NAT's mapping and filtering behavior of the routers involved.
+### What Determines the Success of a P2P Connection?
 
-NAT implementations are broadly categorized into two models:
-1. Cone NAT
-2. Symmetric NAT
+Not geography, distance, or ISP branding. The NAT devices between the peers decide. Two people in the same city can fail; two people on different continents can succeed.
 
-// TODO: Soon.
+A NAT does two things: it gives your socket a public mapping, and it filters who can send back through it.
+
+Cone NAT keeps one mapping for every destination:
+
+```
+> Hey, google_stun, what is my endpoint?
+< 82.14.99.42:51479
+
+to STUN:   192.168.1.10:5000  ->  82.14.99.42:51479
+to PeerB:  192.168.1.10:5000  ->  82.14.99.42:51479   same port
+```
+
+The endpoint STUN gave you is valid for your friend too. Cone NAT comes in three filtering flavors:
+
+```
+full cone          anyone can send in
+restricted cone    only IPs you contacted
+port-restricted    only exact IP:PORTs you contacted
+```
+
+Most home routers are port-restricted cone. That sounds strict, but it is exactly what hole punching handles. Both peers send first, so both NATs have an entry for the other side:
+
+```
+PeerA  --- "hello" --->  PeerB
+PeerA  <-- "hello" ----  PeerB
+       both NATs now allow the reply
+```
+
+A passive listener cannot get through, but two peers that both punch can.
+
+Symmetric NAT is the hard one. It gives a different port per destination:
+
+```
+to STUN:   your_socket  ->  82.14.99.42:51479
+to PeerB:  your_socket  ->  82.14.99.42:61002   different port
+
+your friend aims at 51479
+but the path to you is 61002
+```
+
+The endpoint STUN showed you only works for the STUN server. Sometimes the other side can learn the real port from your packet and reply there, but not always.
+
+Here is the rough picture:
+
+```
+public IP + anything           -> works (if the NAT side sends)
+cone + cone                    -> works
+symmetric + full cone          -> often works
+symmetric + restricted cone    -> often works
+symmetric + port-restricted    -> usually fails
+symmetric + symmetric          -> usually fails
+```
+
+No exact percentages, because real networks have timeouts, UDP-blocking firewalls, and CGNAT layers. The pattern is what matters: no symmetric NAT, usually fine; one symmetric NAT, depends on the other side; two symmetric NATs, practically no.
+
+CGNAT adds another layer. The same table applies to the outer NAT. If the CGNAT is cone, it can still work. If it is symmetric, it may fail even when both home routers are cone. That is why mobile connections are hit-or-miss.
+
+And the part that this project likes: most home broadband behaves like port-restricted cone, and two of those can punch through each other. So for two friends on ordinary home internet, this should work. The cases we expect to lose are the symmetric ones, especially symmetric CGNAT.
+
+A relay would make every row work, but then your files go through someone else's machine and someone pays for the bandwidth. That is the cheating we keep talking about. We would rather fail on the hard NAT combinations than call a relayed connection peer-to-peer.
 
 # Questions
 
