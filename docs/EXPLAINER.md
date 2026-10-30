@@ -23,7 +23,7 @@ These problems are the main motivation to work on this project. To learn, and im
 ## Problem Definition
 
 **Concisely:** We are routed to the internet traffic from behind CGNAT through our IPv4 addresses.
-So, inbound connection is not allowed. And, we don't even have dedicated public IPs. Eventually, a direct P2P connection is not possible between two machines.
+So, inbound connection is not allowed. And, we don't even have dedicated public IPs. Eventually, a direct P2P connection is not possible without NAT traversal between two machines.
 
 ### Preliminary Definitions
 
@@ -31,7 +31,7 @@ So, inbound connection is not allowed. And, we don't even have dedicated public 
   * Public IP  -> Globally unique and directly reachable from anywhere. Example: `140.82.121.3`
   * Private IP -> Used only within LAN. Example: `192.168.1.4`
 
-2. **IP Persistency**
+2. **IP Persistence**
   * Static -> Never changing fixed IP address dedicated for only you. Companies and real servers use it. If you want one, you can contact your ISP and request to buy one.
   * Dynamic -> Temporarily dedicated for you. Resets after restarting modem.
 
@@ -43,7 +43,9 @@ So, inbound connection is not allowed. And, we don't even have dedicated public 
 
 5. **NAT Network:** Stands for network address translation. Multiple devices on the same network are exposed to the internet via the same IP address.
 
-6. **Core Problem at a Glance**
+6. **CGNAT vs NAT:** A home router performs NAT between LAN and the ISP address; CGNAT is a second NAT layer. Both translate `IP:PORT`; CGNAT is the outer, harder shell.
+
+7. **Core Problem at a Glance**
   * Classic Internet Era -> Residential users had **dynamic public IPs** like today we have. However, with a difference, even if your IP changed when restarting the modem, it was **dedicated** to you at that moment. Your computer was directly exposed to the global internet, allowing inbound connection and making direct P2P connection possible.
   * Modern Internet Era -> Residential users no longer get a dedicated public IP. Instead, ISPs assign a **private IP** locally, routing thousands of users through a single, **shared public IP** (Carrier-Grade NAT). Inbound connection attempts are dropped at the ISP level before ever reaching your router.
 
@@ -65,12 +67,12 @@ To conclude: This project is based on P2P connections. The main challenge here i
 
 **Comparison Table:**
 
-| #                          | Pre-2000s (The Classic Internet)                                              | Modern Era (NAT & CGNAT)                                                                                                                 |
+| #                          | Pre-2000s                                                                     | Modern Era (NAT & CGNAT)                                                                                                                 |
 | ------------------------   | ----------------------------------------------------------------------------  | --------------------------------------------------------------------------------------------------------------------------------------   |
-| **IP Allocation**          | You have dedicated public ip                                                  | You have shared public ip with many others. The massive NAT device provided by your ISP would assign a temporary public endpoint (ip+port) for you to connect to the internet |
+| **IP Allocation**          | You have public ip dedicated for you.                                         | You have shared public ip with many others. The massive CGNAT device provided by your ISP would assign a temporary public endpoint for you to connect to the internet |
 | **Inbound Connections**    | Open. Anyone with your IP could connect directly to your machine.             | Blocked. Routers and ISPs drop unsolicited incoming traffic by default.                                                                  |
 | **Hosting (`index.html`)** | You could host a website directly from your personal computer to the world.   | You would contact your ISP and buy a static IP for yourself to host index.html from your machine. This way you would skip the whole CGNAT pool having your own special address in the internet.                                       |
-| **P2P Communication**      | Direct `Machine A <-> Machine B` connection was the natural default behavior. | Requires routing traffic through intermediary middleman servers. The solution section in this writing is exactly related to this.        |
+| **P2P Communication**      | Direct `Machine A <-> Machine B` connection was the natural default behavior. | Cumbersome. We need to work on NAT traversal.                                                                                            |
 | **Address Exhaustion**     | 4.3 billion addresses seemed sufficient for early internet adoption.          | IPv4 pool depleted, making massive-scale IP sharing (CGNAT) mandatory. IPv6 is also something, but even I don't have it.                 |
 
 <br/>
@@ -96,14 +98,16 @@ To overcome the first roadblock, we need an outside entity to act as a mirror: e
   * A STUN server simply receives a lightweight UDP packet from your machine and replies: *"Hey, I received your message from this public IP and Port!"*
   * By reflecting this information back, it reveals your **Public Endpoint (NAT Binding)** to you. Once both peers discover their respective endpoints, they are ready for the next step.
 
+There are two things to keep in mind. First, both peers' public endpoints must be known. Second, after this discovery, these peers must exchange these endpoints with each other. This exchange is called **signaling.**
+
 ### 2. Hole-Punching
 
 Now comes the second roadblock: CGNAT drops all incoming traffic because it appears unrequested. Since traditional inbound connections are blocked, we use a technique referred to as **hole-punching**.
 
 Instead of relying on a traditional inbound connection, we exploit how NAT firewalls handle outbound traffic:
 
-* **The outbound mechanism:** We are freely allowed with outbound connection. Since it is the most basic traffic direction, it isn't restricted. The other way around, internet would have no practical use already. So, when you send a packet out, your firewall temporary opens a state entry saying: *"I sent a packet to Address X, so allow any response coming back from Address X."*
-* **Simultaneous punching:** Once PeerA and PeerB exchange their STUN-discovered public endpoints, both peers send outbound packets to each other **at the exact same moment**.
+* **The outbound mechanism:** We are freely allowed with outbound connection. Since it is the most basic traffic direction, it isn't restricted. The other way around, internet would have no practical use already. So, when you send a packet out, your firewall temporarily opens a state entry saying: *"I sent a packet to Address X, so allow any response coming back from Address X."*
+* **Simultaneous punching:** Once PeerA and PeerB exchange their STUN-discovered public endpoints, both peers send outbound packets to each other at the same moment. They don't have to be accurate to the nanosecond. Retries and a few seconds of skew are fine.
 * **Establishing the link:** When PeerA sends a packet to PeerB, PeerA's firewall opens a path for PeerB. Simultaneously, PeerB's firewall opens a path for PeerA. 
 
 By punching a hole from the inside out simultaneously, both firewalls are convinced that the incoming packets are legitimate responses to their own outbound requests—turning two blocked connections into a direct, bidirectional P2P tunnel.
@@ -116,12 +120,36 @@ By using UDP, we will have a more flexible option. UDP doesn't have a complex ha
 
 In other words, we'll take advantage of UDP's flexibility while adding TCP's reliability ourselves. We will communicate using this combination.
 
-It's also worth noting that STUN servers generally expect UDP requests. 
+It's also worth noting that STUN servers generally expect UDP requests.  
+
+## Scope & Boundaries
+
+Common frameworks like WebRTC offer high success rates with P2P connection. However, they rely on a fallback mechanism: Relay servers (commonly known as TURN servers). When direct hole-punching fails, these systems silently route all live traffic through a middleman proxy.
+
+In the scope of this project, relying on a relay server is considered cheating.
+
+A relay server is a real, physical or virtual machine hosted in the public realm of the internet. A relay server actively receives, processes, and re-transmits every single byte of your actual payload. This requires:
+* A machine with a dedicated public IP running 24/7.
+* Continuous server maintenance and hosting overhead.
+* Significant bandwidth consumption.
+
+In short: **Relay servers come with a cost.**
+
+The core motivation of `handshake` is to establish a pure, casual, zero-cost P2P connection using only the resources already available to everyday internet users. If two peers cannot punch a direct hole through their respective firewalls, we gracefully accept the failure rather than masking it behind a middleman.
+
+### What is Determinant in the Success of P2P Connection?
+This is independent of geographic boundaries, physical distance, or ISP branding. Instead, it is primarily determined by the NAT's mapping and filtering behavior of the routers involved.
+
+NAT implementations are broadly categorized into two models:
+1. Cone NAT
+2. Symmetric NAT
+
+// TODO: Soon.
 
 # Questions
 
 Ever since this project caught my interest, I've asked a lot of questions and tried to understand and make sense of many things about networking.
-I thought it would be a good idea to compile some of them here with their corresponding gemini responses.
+I thought it would be a good idea to compile some of them.
 
 **Q1:** I struggle grasping the phenomenon of peer-to-peer connection being possible despite the CGNAT wall, however http connections being not possible. What about ssh connection? I mean what causes the difference?
 
@@ -184,9 +212,18 @@ By definition, p2p connection is 1-to-1. This scenario is going to be managed en
 2. Once connected, the host's state machine transitions from `Listening` to `Connected`.
 3. Any other requests from other peers are immediately rejected with a `Status::Busy` frame.
 
-#### Something to Notice
+</details>
 
-By design of transport layer architecture, establishing a connection natively requires one party to act as a **passive open** (listener) and the other as an **active open** (initiator). We are generally accustomed to viewing the listener as a traditional server that handles multiple incoming requests. In our p2p model, however, this listener role is merely a temporary bootstrapping mechanism to allow two nodes to find each other. The server-client distinction vanishes the millisecond the handshake completes, leaving a fully symmetric 1-to-1 tunnel: `PeerA <--> PeerB`
+---
+
+**Q3:** Why isn't it enough to discover just one peer's public endpoint?
+
+<details>
+<summary>Explanation</summary>
+
+PeerA discovered its own endpoint and sent it to PeerB. Let's say PeerB tries to send a packet to that endpoint. PeerA will not receive that packet because PeerA also needed to send a packet to PeerB at that very moment. That's the whole point of hole-punching: Two outbound connections trying to find each other at the same time.  
+
+This places the responsibility on us to perform STUN discovery for both sides. And as a result, the peers must share this information with each other.  
 
 </details>
 
