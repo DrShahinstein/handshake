@@ -33,7 +33,7 @@ swap that information,
 begin punching each other's holes,  
 start a session.  
 
-```bash
+```
 $ handshake punch
 > bound to 0.0.0.0:6969
   * loopback: 127.0.0.1:6969
@@ -74,25 +74,21 @@ handshake://ewogICJjYW5kaWRhdGVzIjogWwogICAgIjE5Mi4xNjguMS42OTo2OTY5IiwKICAgICI4
 Both peers probe every address in the list, and the first one that answers wins:
 
 ```
-Thread 1 (loopback): Probing 127.0.0.1:6969
-Thread 2 (lan):      Probing 192.168.1.69:6969
-Thread 3 (public):   Probing 82.14.99.42:58293
+Thread 1 (lan):      Probing 192.168.1.69:6969
+Thread 2 (public):   Probing 82.14.99.42:58293
 ...
 ```
 
-Whichever wins the race, the connection is held upon it.
-This approach would also make room for potential IPv6 fallback implementation in the future.
-And, LAN is always the fastest connection if it is really available. That also fits finely.
-So, it is preferable in many ways for its flexibility.
+Whichever wins the race, the connection is held upon it.  
+This approach would also make room for potential IPv6 fallback implementation in the future.  
+And, LAN is always the fastest connection if it is really available. That also fits finely.  
+So, it is preferable in many ways for its flexibility.  
 
 Refer to [P2P Comm. Across NAT, section3.2](https://pdos.csail.mit.edu/papers/p2pnat.pdf)
 
 > ...The order and timing of these messages are not critical as long as they are asynchronous.
 
 > ...Nevertheless, hole punching works automatically in all of these scenarios without the application having to know the specific network organization.
-
-That last quote assumes the NATs allow it. As the <EXPLAINER.md> shows, symmetric
-NATs on both sides are where it stops working, and that is accepted.
 
 # Protocol
 
