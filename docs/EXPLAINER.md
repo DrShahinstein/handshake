@@ -190,3 +190,7 @@ By design of transport layer architecture, establishing a connection natively re
 
 </details>
 
+# References to Note
+* https://pdos.csail.mit.edu/papers/p2pnat.pdf
+* https://tailscale.com/blog/how-nat-traversal-works
+
