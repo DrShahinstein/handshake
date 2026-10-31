@@ -1,6 +1,13 @@
+use std::process::ExitCode;
 use handshake::cli;
 
-fn main() {
-  cli::launch().unwrap_or_else(|e| eprintln!("{e}"));
+fn main() -> ExitCode {
+  match cli::launch() {
+    Ok(()) => ExitCode::SUCCESS,
+    Err(err) => {
+      eprintln!("{err}");
+      ExitCode::FAILURE
+    }
+  }
 }
 
