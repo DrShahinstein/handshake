@@ -6,7 +6,7 @@ use crate::{HshError, Result};
 
 const RETRY_INTERVAL: Duration = Duration::from_millis(250);
 const CONFIRM_GRACE: Duration  = Duration::from_millis(500);
-const MAX_ATTEMPTS: usize      = 20;
+const MAX_ATTEMPTS: usize      = 120;
 
 struct PunchCtx {
   addr: Option<SocketAddr>,
