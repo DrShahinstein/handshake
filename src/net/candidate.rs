@@ -1,6 +1,6 @@
-use std::net::{UdpSocket, SocketAddr};
-use crate::{Result, HshError, net};
+use std::net::{SocketAddr, UdpSocket};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use crate::{HshError, Result, net};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Candidates {
@@ -11,14 +11,12 @@ pub struct Candidates {
 
 impl Candidates {
   pub fn gather(socket: &UdpSocket, port: u16) -> Self {
-    let loopback: SocketAddr = format!("127.0.0.1:{port}")
-      .parse()
-      .unwrap();
+    let loopback: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
 
-    let lan = net::listen::get_lan_ip()
-      .and_then(|ip| format!("{ip}:{port}")
-      .parse()
-      .ok());
+    let lan = net::get_lan_ip()
+               .and_then(|ip| format!("{ip}:{port}")
+               .parse()
+               .ok());
 
     let public = if lan.is_some() {
       net::stun::discover(socket).ok()
@@ -26,11 +24,15 @@ impl Candidates {
       None
     };
 
-    Self { loopback, lan, public }
+    Self {
+      loopback,
+      lan,
+      public,
+    }
   }
 
   pub fn addrs(&self) -> Vec<SocketAddr> {
-    let mut list = vec![self.loopback];
+    let mut list = Vec::new();
 
     if let Some(lan) = self.lan {
       list.push(lan);
@@ -46,7 +48,7 @@ impl Candidates {
     let addrs_str = self
       .addrs()
       .iter()
-      .map(|a| a.to_string())
+      .map(|addr| addr.to_string())
       .collect::<Vec<_>>()
       .join(",");
 
@@ -56,9 +58,8 @@ impl Candidates {
   }
 
   pub fn from_base64(link: &str) -> Result<Vec<SocketAddr>> {
-    let raw = link.trim();
-
-    let clean_link = raw
+    let clean_link = link
+      .trim()
       .strip_prefix(net::LINK_PREFIX)
       .ok_or(HshError::InvalidLink)?;
 
@@ -66,12 +67,12 @@ impl Candidates {
       .decode(clean_link.as_bytes())
       .map_err(|_| HshError::InvalidLink)?;
 
-    let decoded_str = String::from_utf8(decoded_bytes)
-      .map_err(|_| HshError::InvalidLink)?;
+    let decoded_str = String::from_utf8(decoded_bytes).map_err(|_| HshError::InvalidLink)?;
 
     let addrs: Vec<SocketAddr> = decoded_str
       .split(',')
-      .filter_map(|s| s.parse::<SocketAddr>().ok())
+      .filter_map(|addr| addr.parse::<SocketAddr>().ok())
+      .filter(|addr| !addr.ip().is_loopback())
       .collect();
 
     if addrs.is_empty() {
@@ -79,6 +80,19 @@ impl Candidates {
     }
 
     Ok(addrs)
+  }
+
+  pub fn resolve_target(target: &str) -> Result<Vec<SocketAddr>> {
+    let target = target.trim();
+
+    if target.starts_with(net::LINK_PREFIX) {
+      Self::from_base64(target)
+    } else {
+      target
+        .parse::<SocketAddr>()
+        .map(|addr| vec![addr])
+        .map_err(|_| HshError::InvalidLink)
+    }
   }
 
   pub fn show(&self) {
@@ -98,7 +112,8 @@ impl Candidates {
 
     let raw_link    = self.to_base64();
     let styled_link = format!("\x1b[4;36m{raw_link}\x1b[0m");
-    println!("> share this link with your peer: {styled_link}");
+
+    println!("> share this link with your peer:\n{styled_link}\n");
   }
 }
 
