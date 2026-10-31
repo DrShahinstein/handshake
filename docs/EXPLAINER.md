@@ -114,11 +114,11 @@ By punching a hole from the inside out simultaneously, both firewalls are convin
 
 ### 3. UDP
 
-We don't want to use TCP packets while punching the hole, because TCP has a strict, built-in three-way handshake mechanism. CGNAT routers control this system more strictly and rigorously.
+TCP nat traversal is possible for sure, but it has less accuracy and more cumbersome work to add. One of the reasons is because it has a strict, built-in three-way handshake mechanism. CGNAT routers control this system more strictly and rigorously.  
 
-By using UDP, we will have a more flexible option. UDP doesn't have a complex handshake method. It's simply like "throwing data." However, we also need the uninterrupted and clear data flow that TCP provides. To solve this, we will utilize the sequence IDs included in our [protocol](ARCHITECTURE.md#protocol) and index the packets. This way, we'll still be able to communicate without data loss.
+By using UDP, we will have a more flexible option. UDP doesn't have a complex handshake method. It's simply like "throwing data." However, we also need the uninterrupted and clear data flow that TCP provides. To solve this, we will utilize the sequence IDs included in our [protocol](ARCHITECTURE.md#protocol) and index the packets. This way, we'll still be able to communicate without data loss.  
 
-In other words, we'll take advantage of UDP's flexibility while adding TCP's reliability ourselves. We will communicate using this combination.
+In other words, we'll take advantage of UDP's flexibility while partially adding TCP's reliability ourselves. We will communicate using this combination.
 
 It's also worth noting that STUN servers generally expect UDP requests.  
 
@@ -257,35 +257,29 @@ Modern mesh VPN overlays—most notably [Tailscale](https://tailscale.com/) and 
 
 ---
 
-**Q2:** What happens if multiple peers try to connect to the listening port, or if I accidentally share the link with more than one person?
+**Q2:** Why isn't it enough to discover just one peer's public endpoint?
 
 <details>
 <summary>Explanation</summary>
 
-By definition, p2p connection is 1-to-1. This scenario is going to be managed entirely by the state machine:  
+PeerA knows PeerB's public endpoint.  
+Sends data to that endpoint.  
+But it won't reach out unless PeerB also sends data to PeerA's public endpoint.  
+Because that was the point of hole-punching.  
+So, both public endpoints are needed to be known.  
 
-1. The first peer to successfully complete the protocol handshake secures the p2p connection.
-2. Once connected, the host's state machine transitions from `Listening` to `Connected`.
-3. Any other requests from other peers are immediately rejected with a `Status::Busy` frame.
+This places the responsibility on us to perform STUN discovery for both sides. 
+Consequently, we should also make it easier for peers to exchange their public endpoint information. 
+This process is called signaling. Don't take it as a complete different technique. 
+Sending your endpoint to your friend from a chat app is a signaling too. 
+We'll use base64 links to abstract the data as a candidates list. 
+This way it will be more convenient. Details to this are in the [ARCHITECTURE.md](ARCHITECTURE.md).
 
 </details>
 
 ---
 
-**Q3:** Why isn't it enough to discover just one peer's public endpoint?
-
-<details>
-<summary>Explanation</summary>
-
-PeerA discovered its own endpoint and sent it to PeerB. Let's say PeerB tries to send a packet to that endpoint. PeerA will not receive that packet because PeerA also needed to send a packet to PeerB at that very moment. That's the whole point of hole-punching: Two outbound connections trying to find each other at the same time.  
-
-This places the responsibility on us to perform STUN discovery for both sides. And as a result, the peers must share this information with each other.  
-
-</details>
-
----
-
-**Q4:** Can PeerB accidentally punch into some other service already running on port 6969 in their own LAN while probing the `192.168.1.69:6969` candidate?
+**Q3:** Can PeerB accidentally punch into some other service already running on port 6969 in their own LAN while probing the `192.168.1.69:6969` candidate?
 
 <details>
 <summary>Explanation</summary>
@@ -299,17 +293,6 @@ Roughly, it looks like this:
 -:
 +: Yeah you don't. I think you are my television by the way.
 ```
-
-</details>
-
----
-
-**Q5:** Why not let one peer listen while the other punches?
-
-<details>
-<summary>Explanation</summary>
-
-Because the listener never sends anything first. Its NAT has no mapping for the peer and no filter entry for the incoming probe, so the packet is dropped at the router. Listening only works when the listener is already reachable: loopback, the same LAN, or a public IP. Two peers behind NAT both have to send, which is why both sides run `handshake punch`.
 
 </details>
 
