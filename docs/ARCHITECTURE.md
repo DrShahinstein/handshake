@@ -15,15 +15,15 @@ PeerB
 ### Help
 
 ```
-Usage: handshake punch [OPTIONS] [PEER]
+Usage: handshake <command>
 
-Arguments:
-  [PEER]  base64-link or IP:PORT
+Commands:
+ - punch [IP:PORT / base64-link]
+ - help
+ - version
 
 Options:
   -p, --port <PORT>  Local UDP port to bind [default: 6969]
-  -h, --help         Print help information
-  -V, --version      Print version information
 ```
 
 ### Punch
