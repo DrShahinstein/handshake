@@ -22,10 +22,14 @@ pub fn launch() -> Result<()> {
 }
 
 pub const HELP_MSG: &str = "\
-Usage: handshake <command> <argument>
+Usage: handshake punch [OPTIONS] [PEER]
 
-Commands:
-- listen <port:6969>
-- connect <socket>
+Arguments:
+  [PEER]  base64-link or IP:PORT
+
+Options:
+  -p, --port <PORT>  Local UDP port to bind [default: 6969]
+  -h, --help         Print help information
+  -V, --version      Print version information
 "
 ;
