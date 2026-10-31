@@ -1,28 +1,52 @@
-use crate::{Result, HshError, cli};
+use crate::{HshError, Result, cli};
 use std::env;
 
 pub fn run() -> Result<cli::Command> {
-  let mut args = env::args().skip(1);
+  parse(env::args().skip(1))
+}
+
+pub fn parse<I>(args: I) -> Result<cli::Command>
+where I: IntoIterator<Item = String>
+{
+  let mut args = args.into_iter();
 
   let command = match args.next() {
-    Some(s) => s,
-    None    => return Ok(cli::Command::Help),
+    Some(command) => command,
+    None          => return Ok(cli::Command::Help),
   };
 
   match command.as_str() {
-    "listen" => {
-      let port_str  = args.next().unwrap_or_else(|| cli::DEFAULT_PORT.to_string());
-      let port: u16 = port_str.parse().unwrap_or(cli::DEFAULT_PORT);
-      Ok(cli::Command::Listen {port})
-    }
-
-    "connect" => {
-      let target = args.next().ok_or(HshError::CliNoArg)?;
-      Ok(cli::Command::Connect {target})
-    }
-
+    "punch"   => parse_punch(args),
     "help"    => Ok(cli::Command::Help),
     "version" => Ok(cli::Command::Version),
-    __other__ => Err(HshError::CliNoCmd)
+    __other__ => Err(HshError::CliNoCmd(__other__.to_string())),
   }
 }
+
+fn parse_punch<I>(mut args: I) -> Result<cli::Command>
+where I: Iterator<Item = String>
+{
+  let mut port   = cli::DEFAULT_PORT;
+  let mut target = None;
+
+  while let Some(arg) = args.next() {
+    if arg == "-p" || arg == "--port" {
+      let value = args.next().ok_or_else(|| HshError::CliNoArg(arg.clone()))?;
+      port      = value.parse().map_err(|_| HshError::CliInvalidPort(value))?;
+      continue;
+    }
+
+    if arg.starts_with('-') {
+      return Err(HshError::CliUnknownOpt(arg));
+    }
+
+    if target.is_some() {
+      return Err(HshError::CliTooManyArgs);
+    }
+
+    target = Some(arg);
+  }
+
+  Ok(cli::Command::Punch {port, target})
+}
+
