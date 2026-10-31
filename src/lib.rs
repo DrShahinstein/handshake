@@ -8,11 +8,20 @@ pub enum HshError {
   #[error("IO Error: {0}")]
   IoErr(#[from] std::io::Error),
 
-  #[error("No such command.")]
-  CliNoCmd,
+  #[error("No such command: {0}")]
+  CliNoCmd(String),
 
-  #[error("Expected argument.")]
-  CliNoArg,
+  #[error("Expected argument for {0}.")]
+  CliNoArg(String),
+
+  #[error("Unknown option: {0}")]
+  CliUnknownOpt(String),
+
+  #[error("Too many arguments.")]
+  CliTooManyArgs,
+
+  #[error("Invalid port: {0}")]
+  CliInvalidPort(String),
 
   #[error("Invalid handshake link.")]
   InvalidLink,
