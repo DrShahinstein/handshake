@@ -8,7 +8,7 @@ const RETRY_INTERVAL: Duration = Duration::from_millis(250);
 const CONFIRM_GRACE: Duration  = Duration::from_millis(500);
 const MAX_ATTEMPTS: usize      = 20;
 
-struct PunchState {
+struct PunchCtx {
   addr: Option<SocketAddr>,
   syn_acked: bool,
   confirmed_at: Option<Instant>,
@@ -34,27 +34,27 @@ fn punch_loop(socket: &UdpSocket, peer_addrs: &[SocketAddr]) -> Result<SocketAdd
     println!("...punching {addr}");
   }
 
-  let syn       = Frame::syn();
-  let mut state = PunchState::new();
+  let syn     = Frame::syn();
+  let mut ctx = PunchCtx::new();
 
   for _ in 0..MAX_ATTEMPTS {
-    if state.confirmed_at.is_none() {
-      state.send_syn(socket, peer_addrs, &syn);
+    if ctx.confirmed_at.is_none() {
+      ctx.send_syn(socket, peer_addrs, &syn);
     }
 
     while let Some((frame, src)) = recv_frame_or_timeout(socket)? {
-      state.handle_frame(socket, frame, src);
+      ctx.handle_frame(socket, frame, src);
     }
 
-    if let Some(addr) = state.confirmed_addr() {
+    if let Some(addr) = ctx.confirmed_addr() {
       return Ok(addr);
     }
   }
 
-  state.into_result()
+  ctx.into_result()
 }
 
-impl PunchState {
+impl PunchCtx {
   fn new() -> Self {
     Self {
       addr: None,
