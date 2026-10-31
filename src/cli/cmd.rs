@@ -19,10 +19,10 @@ pub fn punch(port: u16, target: Option<&str>) -> Result<()> {
     None         => read_peer_link()?,
   };
 
-  let peers = Candidates::resolve_target(&input)?;
-  let peer  = net::punch::start(&socket, &peers)?;
+  let peer_addrs = Candidates::resolve_target(&input)?;
+  let peer_addr  = net::punch::start(&socket, &peer_addrs)?;
 
-  net::session::start(socket, peer)?;
+  net::session::start(socket, peer_addr)?;
 
   Ok(())
 }
