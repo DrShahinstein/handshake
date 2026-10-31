@@ -18,7 +18,7 @@ PeerB
 Usage: handshake punch [OPTIONS] [PEER]
 
 Arguments:
-  [PEER]  Peer link (handshake://...), IP:PORT, or raw candidate address
+  [PEER]  base64-link or IP:PORT
 
 Options:
   -p, --port <PORT>  Local UDP port to bind [default: 6969]
@@ -31,7 +31,7 @@ Options:
 Both peers open a socket,  
 find out how the outside world sees them,  
 swap that information,  
-begin punching each other's holes,  
+begin punching holes toward each other,  
 start a session.  
 
 PeerA
@@ -124,11 +124,22 @@ Frame header: 13 bytes total
 
 | Field | Size | Type | Description |
 | :--- | :--- | :--- | :--- |
-| **Magic Bytes** | 3 Bytes | `[u8; 3]` | Must be `0x48 0x53 0x48` ("HSH"). Used for protocol identification. |
-| **Frame Type** | 1 Byte | `u8` | Identifies the intent of the packet. Will determine what to expect from the payload. |
-| **Status Code** | 1 Byte | `u8` | Execution status (e.g., `0x00` = Success, `0x01` = Error). |
+| **Magic Bytes** | 3 Bytes | `[u8; 3]` | Must be `0x48 0x53 0x48` ("HSH"). Used for protocol identification |
+| **Frame Type** | 1 Byte | `u8` | Identifies the intent of the packet. Will determine what to expect from the payload |
+| **Status Code** | 1 Byte | `u8` | Execution status (`200`=Success, `201`=Error) |
 | **Sequence ID** | 4 Bytes | `u32` | Packet indexing |
-| **Payload Length**| 4 Bytes | `u32` | Used to know where to stop reading the incoming payload. |
-| **Payload** | Variable | `Vec<u8>` | Transmitted data as raw bytes. Can be anything depending on our purpose. |
+| **Payload Length**| 4 Bytes | `u32` | Used to know where to stop reading the incoming payload |
+| **Payload** | Variable | `Vec<u8>` | Transmitted data as raw bytes. Can be anything depending on our purpose |
 
+# Manual Handshake Model
+
+It's a mirrored SYN/ACK exchange, implemented upon UDP packets manually.  
+
+```
+X) PeerA --SYN--> PeerB
+Y) PeerA <-SYN--- PeerB
+
+X) PeerA <--ACK-- PeerB
+Y) PeerA ---ACK-> PeerB
+```
 
