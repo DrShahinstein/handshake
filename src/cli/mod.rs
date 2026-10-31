@@ -5,31 +5,30 @@ pub mod parser;
 
 pub const DEFAULT_PORT: u16 = 6969;
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Command {
-  Listen  {port: u16},
-  Connect {target: String},
+  Punch {port: u16, target: Option<String>},
   Help,
   Version,
 }
 
 pub fn launch() -> Result<()> {
   match parser::run()? {
-    Command::Listen  {port}   => cmd::listen(port),
-    Command::Connect {target} => cmd::connect(&target),
-    Command::Help             => cmd::help(),
-    Command::Version          => cmd::version(),
+    Command::Punch {port,target} => cmd::punch(port, target.as_deref()),
+    Command::Help                => cmd::help(),
+    Command::Version             => cmd::version(),
   }
 }
 
 pub const HELP_MSG: &str = "\
-Usage: handshake punch [OPTIONS] [PEER]
+Usage: handshake <command>
 
-Arguments:
-  [PEER]  base64-link or IP:PORT
+Commands:
+ - punch [IP:PORT / base64-link]
+ - help
+ - version
 
 Options:
   -p, --port <PORT>  Local UDP port to bind [default: 6969]
-  -h, --help         Print help information
-  -V, --version      Print version information
-"
-;
+";
+
