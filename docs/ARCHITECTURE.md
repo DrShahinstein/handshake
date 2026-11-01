@@ -89,23 +89,26 @@ Corresponding to:
 handshake://ewogICJjYW5kaWRhdGVzIjogWwogICAgIjE5Mi4xNjguMS4zOjY5NjkiLAogICAgIjgyLjE0Ljk5LjQyOjU4MjkzIgogIF0sCiAgIm5hbWUiOiAicGVlci1hIiwKICAidmVyc2lvbiI6IDEKfQ==
 ```
 
-Both peers probe every address in the list, and the first one that answers wins:
-
+Both peers probe every address in the list, creating benign race condition:
 ```
-Thread 1 (lan):      Probing 192.168.1.3:6969
-Thread 2 (public):   Probing 82.14.99.42:58293
-...
+> READ link
+> peer_addrs = PARSE_BASE64(link);
+> FOR addr IN peer_addrs:
+>   PROBE addr
+
+# Iteration1 (lan):     Probing 192.168.1.3:6969
+# Iteration2 (public):  Probing 82.14.99.42:58293
+# ...
 ```
 
-Whichever wins the race, the connection is held upon it.  
-This approach would also make room for potential IPv6 fallback implementation in the future.  
-And, LAN is always the fastest connection if it is really available. That also fits finely.  
-So, it is preferable in many ways for its flexibility.  
+Whichever responds back earlier, the connection is held upon it.  
+
+This approach is referred to as candidates, freeing us from considering each specific network edge case manually. 
+Also makes room for potential IPv6 fallback implementation in the future. 
+And, LAN is usually the fastest connection. That also fits finely. 
+So, it is preferable in many ways for its flexibility. 
 
 Refer to [P2P Comm. Across NAT, section3.2](https://pdos.csail.mit.edu/papers/p2pnat.pdf)
-
-> ...The order and timing of these messages are not critical as long as they are asynchronous.
-
 > ...Nevertheless, hole punching works automatically in all of these scenarios without the application having to know the specific network organization.
 
 # Protocol
