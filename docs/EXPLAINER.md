@@ -23,21 +23,23 @@ These problems are the main motivation to work on this project. To learn, and im
 ## Problem Definition
 
 **Concisely:** We are routed to the internet traffic from behind CGNAT through our IPv4 addresses.
-So, inbound connection is not allowed. And, we don't even have dedicated public IPs. Eventually, a direct P2P connection is not possible without NAT traversal between two machines.
+So, inbound connection is not allowed. And, we don't have publicly routable IP anymore like we used to have in the classic internet era. Eventually, a direct P2P connection is not possible without NAT traversal between two machines.
 
 ### Preliminary Definitions
 
 1. **IP Accessibility**
-  * Public IP  -> Globally unique and directly reachable from anywhere. Example: `140.82.121.3`
-  * Private IP -> Used only within LAN. Example: `192.168.1.4`
+  * Public IP  -> Used within WAN. Example: `140.82.121.3`  
+  * Private IP -> Used within LAN. Example: `192.168.1.4`  
+  * More: In the past, LAN networks weren't the default. The IP you obtained was public by design, globally routable.
+  Today, we still have public IPs but it is a lie. Yes, it is used within WAN; no definition trouble. However, nobody can access you from outside. The concept of publicity has changed.  
 
 2. **IP Persistence**
   * Static -> Never changing fixed IP address dedicated for only you. Companies and real servers use it. If you want one, you can contact your ISP and request to buy one.
   * Dynamic -> Temporarily dedicated for you. Resets after restarting modem.
 
 3. **Traffic Direction**
-  * Outbound -> You ---> Target | Example: Open youtube.com
-  * Inbound  -> Target --> You  | Example: Your machine is tried to be connected with SSH
+  * Outbound -> You ---> Target | Example: Open youtube.com  
+  * Inbound  -> Target --> You  | Example: Make your printer print.  
 
 4. **Public Endpoint:** `<IP>:<PORT>`
 
@@ -46,8 +48,8 @@ So, inbound connection is not allowed. And, we don't even have dedicated public 
 6. **CGNAT vs NAT:** A home router performs NAT between LAN and the ISP address; CGNAT is a second NAT layer. Both translate `IP:PORT`; CGNAT is the outer, harder shell.
 
 7. **Core Problem at a Glance**
-  * Classic Internet Era -> Residential users had **dynamic public IPs** like today we have. However, with a difference, even if your IP changed when restarting the modem, it was **dedicated** to you at that moment. Your computer was directly exposed to the global internet, allowing inbound connection and making direct P2P connection possible.
-  * Modern Internet Era -> Residential users no longer get a dedicated public IP. Instead, ISPs assign a **private IP** locally, routing thousands of users through a single, **shared public IP** (Carrier-Grade NAT). Inbound connection attempts are dropped at the ISP level before ever reaching your router.
+  * Classic Internet Era -> Residential users had dynamic public IPs. But, even if your IP changed when restarting the modem, it was dedicated to you at that moment. Your computer was directly exposed to the global internet, allowing inbound connections and making direct P2P connections possible.
+  * Modern Internet Era -> Residential users still have dynamic public IPs. However, ISPs assign a private IP locally, routing thousands of users through a single, **shared public IP** via Carrier-Grade NAT (CGNAT). Inbound connection attempts are dropped at the ISP level before ever reaching your router. In a way, publicity has lost its meaning compared to the past.
 
 ### The Story
 
@@ -69,10 +71,10 @@ To conclude: This project is based on P2P connections. The main challenge here i
 
 | #                          | Pre-2000s                                                                     | Modern Era (NAT & CGNAT)                                                                                                                 |
 | ------------------------   | ----------------------------------------------------------------------------  | --------------------------------------------------------------------------------------------------------------------------------------   |
-| **IP Allocation**          | You have public ip dedicated for you.                                         | You have shared public ip with many others. The massive CGNAT device provided by your ISP would assign a temporary public endpoint for you to connect to the internet |
+| **IP Allocation**          | You have public ip dedicated for you.                                         | You do have public ip, but it's a lie. It isn't dedicated for only you. It's shared by many others same as you.                         |
 | **Inbound Connections**    | Open. Anyone with your IP could connect directly to your machine.             | Blocked. Routers and ISPs drop unsolicited incoming traffic by default.                                                                  |
-| **Hosting (`index.html`)** | You could host a website directly from your personal computer to the world.   | You would contact your ISP and buy a static IP for yourself to host index.html from your machine. This way you would skip the whole CGNAT pool having your own special address in the internet.                                       |
-| **P2P Communication**      | Direct `Machine A <-> Machine B` connection was the natural default behavior. | Cumbersome. We need to work on NAT traversal.                                                                                            |
+| **Hosting (`index.html`)** | You could host a website directly from your personal computer to the world.   | You would contact your ISP and buy a static IP for yourself to host index.html from your machine, opening yourself to the public realm of the internet. |
+| **P2P Communication**      | Direct `Machine A <-> Machine B` connection was the natural default behavior. | Cumbersome. We need to work on NAT traversal. Real-world apps use relay servers to act as guarantors, which comes at cost.     |
 | **Address Exhaustion**     | 4.3 billion addresses seemed sufficient for early internet adoption.          | IPv4 pool depleted, making massive-scale IP sharing (CGNAT) mandatory. IPv6 is also something, but even I don't have it.                 |
 
 <br/>
@@ -81,13 +83,15 @@ To conclude: This project is based on P2P connections. The main challenge here i
 
 <img width="1581" height="783" alt="Image" src="https://github.com/user-attachments/assets/521aadd1-7cbf-4493-8612-9772467449e3" />
 
-Before establishing a peer-to-peer connection behind CGNAT, we face two fundamental roadblocks:
-1. **Lack of self-awareness:** A machine behind CGNAT has no native way of knowing which temporary public endpoint (`IP:Port`) it uses to communicate with the outside world.
-2. **Blocked inbound traffic:** Any unsolicited incoming connection attempt sent to our public endpoint is immediately dropped by the ISP's CGNAT firewall.
+Before establishing a peer-to-peer connection behind CGNAT, we face two fundamental obstacles:
+1. A machine behind CGNAT has no native way of knowing which temporary public endpoint (`IP:Port`) it uses to communicate with the outside world.
+2. Inbound connection is not allowed. Incoming packets sent to our public endpoint are dropped by the ISP's CGNAT firewall.
 
 ### 1. STUN Servers
 
-To overcome the first roadblock, we need an outside entity to act as a mirror: enter **STUN** (*Session Traversal Utilities for NAT*).
+To overcome the first obstacle, we need an outside entity to act as a mirror: **STUN** (*Session Traversal Utilities for NAT*).
+
+Example stun server: `stun.l.google.com:19302`  
 
 * **What STUN servers are NOT:**
   * They are **not middleman or relay servers** for your actual file transfers.
@@ -98,19 +102,26 @@ To overcome the first roadblock, we need an outside entity to act as a mirror: e
   * A STUN server simply receives a lightweight UDP packet from your machine and replies: *"Hey, I received your message from this public IP and Port!"*
   * By reflecting this information back, it reveals your **Public Endpoint (NAT Binding)** to you. Once both peers discover their respective endpoints, they are ready for the next step.
 
-There are two things to keep in mind. First, both peers' public endpoints must be known. Second, after this discovery, these peers must exchange these endpoints with each other. This exchange is called **signaling.**
+There are two things to keep in mind. First, both peers' public endpoints must be known. Second, after this discovery, these peers must exchange these endpoints with each other. This exchange is called **signaling.** Say, peers nudging each other on Telegram "here's mine"; that's also a signaling. A prerequisite for the next step.
 
 ### 2. Hole-Punching
 
-Now comes the second roadblock: CGNAT drops all incoming traffic because it appears unrequested. Since traditional inbound connections are blocked, we use a technique referred to as **hole-punching**.
+Now comes the second obstacle: CGNAT drops all incoming traffic because it appears unrequested.  
+
+We are going to say: "My house isn't open to guests. But I can still go out."  
 
 Instead of relying on a traditional inbound connection, we exploit how NAT firewalls handle outbound traffic:
 
-* **The outbound mechanism:** We are freely allowed with outbound connection. Since it is the most basic traffic direction, it isn't restricted. The other way around, internet would have no practical use already. So, when you send a packet out, your firewall temporarily opens a state entry saying: *"I sent a packet to Address X, so allow any response coming back from Address X."*
+* **The outbound mechanism:** We are freely allowed with outbound connection. Since it is the most basic traffic direction, it isn't restricted. The other way around, internet would have no practical use anyway. So, when you send a packet out, your firewall temporarily opens a state entry saying: *"I sent a packet to Address X, so allow any response coming back from Address X."*
 * **Simultaneous punching:** Once PeerA and PeerB exchange their STUN-discovered public endpoints, both peers send outbound packets to each other at the same moment. They don't have to be accurate to the nanosecond. Retries and a few seconds of skew are fine.
 * **Establishing the link:** When PeerA sends a packet to PeerB, PeerA's firewall opens a path for PeerB. Simultaneously, PeerB's firewall opens a path for PeerA. 
 
 By punching a hole from the inside out simultaneously, both firewalls are convinced that the incoming packets are legitimate responses to their own outbound requests—turning two blocked connections into a direct, bidirectional P2P tunnel.
+
+Short story:  
+If PeerA simply tries to reach PeerB, the packet gets stuck at the gateway.  
+However, if PeerB is also trying to reach PeerA at that moment, they can find each other.  
+If both sides shine a light at each other at the same time, they can see each other.  
 
 ### 3. UDP
 
@@ -121,6 +132,16 @@ By using UDP, we will have a more flexible option. UDP doesn't have a complex ha
 In other words, we'll take advantage of UDP's flexibility while partially adding TCP's reliability ourselves. We will communicate using this combination.
 
 It's also worth noting that STUN servers generally expect UDP requests.  
+
+### 4. Overall Picture
+
+```
+1. Discover PeerA's public endpoint. (stun)
+2. Discover PeerB's public endpoint. (stun)
+3. Let PeerA and PeerB exchange their endpoint information. (signaling)  # could be any chat app, any way of comm.
+4. Let peers start sending packets towards each other simultaneously. (udp hole-punching)
+5. Shared session begin. Do whatever you want. (connection)
+```
 
 ## Scope & Boundaries
 
@@ -143,6 +164,8 @@ Not geography, distance, or ISP branding. The NAT devices between the peers deci
 
 A NAT does two things: it gives your socket a public mapping, and it filters who can send back through it.
 
+#### -- Cone NAT --
+
 Cone NAT keeps one mapping for every destination:
 
 ```
@@ -153,7 +176,7 @@ to STUN:   192.168.1.10:5000  ->  82.14.99.42:51479
 to PeerB:  192.168.1.10:5000  ->  82.14.99.42:51479   same port
 ```
 
-The endpoint STUN gave you is valid for your friend too. Cone NAT comes in three filtering flavors:
+Straightforward, no trouble. It has three types:
 
 ```
 full cone          anyone can send in
@@ -161,15 +184,10 @@ restricted cone    only IPs you contacted
 port-restricted    only exact IP:PORTs you contacted
 ```
 
-Most home routers are port-restricted cone. That sounds strict, but it is exactly what hole punching handles. Both peers send first, so both NATs have an entry for the other side:
+Most home routers are port-restricted cone. That sounds strict, but it is exactly what hole-punching handles.  
+So, we are happy with this kind. Even the most restricted option is enough for us. Which is also the most common. We like Cone NAT.
 
-```
-PeerA  --- "hello" --->  PeerB
-PeerA  <-- "hello" ----  PeerB
-       both NATs now allow the reply
-```
-
-A passive listener cannot get through, but two peers that both punch can.
+#### -- Symmetric NAT --
 
 Symmetric NAT is the hard one. It gives a different port per destination:
 
@@ -181,120 +199,53 @@ your friend aims at 51479
 but the path to you is 61002
 ```
 
-The endpoint STUN showed you only works for the STUN server. Sometimes the other side can learn the real port from your packet and reply there, but not always.
+You might be saying, oh if this is the situation then there is no chance.  
+
+Well, we really don't want to encounter symmetric nat. But still, there is a chance we can establish p2p connection.  
+
+Let's say PeerA is symmetric and PeerB is cone:
+```
+-- Discovery A --
+udp_socket --> google_stun --> IP_A:8000
+udp_socket --> IP_B:9000   --> fine, I'm knocking on the correct door.
+
+-- Discovery B --
+udp_socket --> google_stun --> IP_B:9000
+udp_socket --> IP_A:8000   --> {approach}
+
+> approach
+Okay, I'm sending packets to port:8000 but we cannot establish connection.
+They may have symmetric NAT. The port of 8000 could be the last port that was given to the socket querrying its STUN server.
+Let me brute force other possible ports between:
+8000-128 <= x <= 8000+128
+  7872   <= x <=   8128
+
+Maybe this way I can identify the port that A was assigned while trying to reach me.
+And we can perform hole-punching to the correct endpoints.
+```
+
+If you would like to read further about here, I recommend you checking out [this.](https://tailscale.com/blog/how-nat-traversal-works#:~:text=rate%2E-,The,manage%2E) They refer to cone/symmetric behaviors as easy-nat/hard-nat.  
+
+So, what if both peers have symmetric nat behavior? We just give up. The rest is relay server stuff.  
+
+#### -- Summary --
 
 Here is the rough picture:
 
 ```
-public IP + anything           -> works (if the NAT side sends)
+public IP + anything           -> works (if the NAT side sends)  # same relationship between your_device-->youtube.com
 cone + cone                    -> works
 symmetric + full cone          -> often works
 symmetric + restricted cone    -> often works
-symmetric + port-restricted    -> usually fails
-symmetric + symmetric          -> usually fails
+symmetric + port-restricted    -> often works (less)
+symmetric + symmetric          -> most probably fails
 ```
 
-No exact percentages, because real networks have timeouts, UDP-blocking firewalls, and CGNAT layers. The pattern is what matters: no symmetric NAT, usually fine; one symmetric NAT, depends on the other side; two symmetric NATs, practically no.
+The pattern is what matters: no symmetric NAT, usually fine; one symmetric NAT, questionable; two symmetric NATs, practically no.  
 
-CGNAT adds another layer. The same table applies to the outer NAT. If the CGNAT is cone, it can still work. If it is symmetric, it may fail even when both home routers are cone. That is why mobile connections are hit-or-miss.
+Most home broadband behaves like port-restricted cone, and two of those can punch through each other. So for two friends on ordinary home internet, we would expect successful p2p connection.  
 
-And the part that this project likes: most home broadband behaves like port-restricted cone, and two of those can punch through each other. So for two friends on ordinary home internet, this should work. The cases we expect to lose are the symmetric ones, especially symmetric CGNAT.
-
-A relay would make every row work, but then your files go through someone else's machine and someone pays for the bandwidth. That is the cheating we keep talking about. We would rather fail on the hard NAT combinations than call a relayed connection peer-to-peer.
-
-# Questions
-
-Ever since this project caught my interest, I've asked a lot of questions and tried to understand and make sense of many things about networking.
-I thought it would be a good idea to compile some of them.
-
-**Q1:** I struggle grasping the phenomenon of peer-to-peer connection being possible despite the CGNAT wall, however http connections being not possible. What about ssh connection? I mean what causes the difference?
-
-<details>
-<summary>Gemini response</summary>
-
-The fundamental difference does not come down to the type of data or the port number; it comes down to who speaks first and how firewalls track conversations.
-
-Under a CGNAT (Carrier-Grade NAT) system, your Internet Service Provider (ISP) places thousands of homes behind a single public IP address. This structure creates two entirely different architectural behaviors. [1, 2, 3] 
-
-### The Cheat Sheet: Why One Works and the Other Fails
-
-| Connection Type | Who Initiates? | What Happens at the CGNAT Firewall? | Does it work under CGNAT? |
-|---|---|---|---|
-| Incoming HTTP / SSH | The Outside Internet | Blocked. The firewall receives an unexpected packet and has no idea which home computer to send it to. | ❌ No |
-| P2P Hole Punching | Both sides simultaneously | Allowed. Both routers record an outbound request, creating temporary "expected reply" windows that match perfectly. | Host-dependent (usually 🚀 Yes) |
-
-------------------------------
-### 1. Why HTTP and SSH Connections Fail (Inbound Listening)
-When you run a standard web server (HTTP) or an SSH server, your computer opens a port and listens silently, waiting for someone on the internet to talk to it. [4] 
-If a client out on the internet tries to connect to you, they must target your ISP's public CGNAT IP address. When that TCP handshake packet hits the ISP's massive core router, the router looks at it and asks: "Which of the 5,000 households sharing this IP address is this packet meant for?" [2] 
-Because you never sent an outbound packet to that specific internet client first, the ISP's firewall has no translation rule mapped for it. The router does not know where to direct it, safety protocols kick in, and the packet is immediately dropped. Traditional port forwarding cannot fix this because you do not own your ISP's routers. [2, 5] 
-### 2. Why P2P Hole Punching Works (Simultaneous Outbound)
-Firewalls are heavily biased: they inherently trust traffic that starts inside your home and goes outward.
-Hole punching exploits this trust by turning an inbound connection into a precisely timed sequence of outbound requests: [6, 7] 
-
-   1. The Outbound Maps: Peer A sends a packet out to Peer B's public IP. At the exact same time, Peer B sends a packet out to Peer A's public IP. [6, 7] 
-   2. The "Holes" Open: When Peer A's packet passes through its CGNAT gateway, the gateway notes: "Okay, internal machine X is expecting a response from Peer B. I will temporarily allow traffic from Peer B back through this specific port." [4, 7] 
-   3. The Connection Crosses: When Peer B's packet arrives at Peer A's gateway, the gateway does not see it as an unsolicited attack. It sees it as the expected reply to the outbound packet Peer A just fired off. The gateway allows it right through. [7] 
-
-By tricking both firewalls into thinking they are merely receiving replies to outbound requests, a direct connection is successfully established right through the CGNAT wall. [6, 8]
-
-### So, can you use Hole Punching for SSH?
-Yes, absolutely. You cannot do it natively with a standard ssh user@ip command, but modern network tooling uses this exact P2P hole-punching trick to bypass CGNAT for SSH and web traffic:
-
-Modern mesh VPN overlays—most notably [Tailscale](https://tailscale.com/) and [ZeroTier](https://www.zerotier.com/)—use STUN and advanced hole-punching techniques to link devices directly. If you install Tailscale on a remote server behind CGNAT and on your laptop, they will punch a hole through the CGNAT wall using UDP. Once that P2P tunnel is open, you can securely route your standard SSH or HTTP traffic directly through it. [1, 7, 9] 
-
-> [1] [https://pinggy.io](https://pinggy.io/blog/how_nat_traversal_works/) <br />
-> [2] [https://goteleport.com](https://goteleport.com/blog/remote-access-nat-cgnat-firewalls/) <br />
-> [3] [https://p2ns.space](https://p2ns.space/learn/p2p) <br />
-> [4] [https://www.youtube.com](https://www.youtube.com/watch?v=TiMeoQt3K4g&t=192) <br />
-> [5] [https://www.infosecinstitute.com](https://www.infosecinstitute.com/resources/hacking/udp-hole-punching/) <br />
-> [6] [https://arxiv.org](https://arxiv.org/html/2510.27500v1) <br />
-> [7] [https://heartit.tech](https://heartit.tech/p2p-from-scratch-part-1-the-internet-is-hostile/) <br />
-> [8] [https://natchecker.com](https://natchecker.com/blog/nat-traversal) <br />
-> [9] [https://superuser.com](https://superuser.com/questions/885140/how-to-use-udp-hole-punching-for-a-ssh-tunnel-session) <br />
-
-</details>
-
----
-
-**Q2:** Why isn't it enough to discover just one peer's public endpoint?
-
-<details>
-<summary>Explanation</summary>
-
-PeerA knows PeerB's public endpoint.  
-Sends data to that endpoint.  
-But it won't reach out unless PeerB also sends data to PeerA's public endpoint.  
-Because that was the point of hole-punching.  
-So, both public endpoints are needed to be known.  
-
-This places the responsibility on us to perform STUN discovery for both sides. 
-Consequently, we should also make it easier for peers to exchange their public endpoint information. 
-This process is called signaling. Don't take it as a complete different technique. 
-Sending your endpoint to your friend from a chat app is a signaling too. 
-We'll use base64 links to abstract the data as a candidates list. 
-This way it will be more convenient. Details to this are in the [ARCHITECTURE.md](ARCHITECTURE.md).
-
-</details>
-
----
-
-**Q3:** Can PeerB accidentally punch into some other service already running on port 6969 in their own LAN while probing the `192.168.1.69:6969` candidate?
-
-<details>
-<summary>Explanation</summary>
-
-Yes, this is possible. To prevent false connections, we rely on the magic bytes in our [protocol](ARCHITECTURE.md#protocol). A service that is not `handshake` will not speak it.
-
-Roughly, it looks like this:
-
-```
-+: Do you know what "HSH" means?
--:
-+: Yeah you don't. I think you are my television by the way.
-```
-
-</details>
+A relay would make every row work, but then your files go through someone else's machine and someone pays for the bandwidth. That is the cheating we keep talking about. We would rather fail on the hard NAT combinations than call a relayed connection peer-to-peer.  
 
 # References to Note
 * https://pdos.csail.mit.edu/papers/p2pnat.pdf
