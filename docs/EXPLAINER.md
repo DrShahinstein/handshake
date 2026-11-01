@@ -247,7 +247,31 @@ Most home broadband behaves like port-restricted cone, and two of those can punc
 
 A relay would make every row work, but then your files go through someone else's machine and someone pays for the bandwidth. That is the cheating we keep talking about. We would rather fail on the hard NAT combinations than call a relayed connection peer-to-peer.  
 
-# References to Note
-* https://pdos.csail.mit.edu/papers/p2pnat.pdf
-* https://tailscale.com/blog/how-nat-traversal-works
+#### -- Testing --
+
+If you wonder what might be your NAT's behavior, `pystun3` is a thing.  
+
+```
+$ python3 -m venv anyenv
+$ source ./bin/activate
+$ pip install pystun3
+$ pystun3
+```
+
+It gave me this in my case:  
+<img width="356" height="179" alt="Image" src="https://github.com/user-attachments/assets/fbfa0b7b-c06f-4282-ae69-345868a2db05" />
+
+We can see from this that I probably have cone NAT as well as many residential users, specifically the most common type port-restricted. 
+Which is common and fine to see.  
+
+## Conclusion
+In theory, establishing a connection between peers behind Cone NATs should be straightforward. In reality, variables like OS firewalls, aggressive NAT timeouts, timing skews, and unpredictable CGNAT behavior mean a 100% connection guarantee is impossible. Within these everyday constraints, the project tries to maximize P2P connectivity purely using local resources—without taking on any hosting overhead or relay server costs.  
+
+So far I've managed to see p2p:
+* is held between my home network and mobile data service giving hotspot to my laptop.  
+*  
+
+## References to Note
+* https://pdos.csail.mit.edu/papers/p2pnat.pdf (2005)
+* https://tailscale.com/blog/how-nat-traversal-works (2020)
 
