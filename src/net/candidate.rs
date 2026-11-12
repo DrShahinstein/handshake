@@ -1,4 +1,4 @@
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{UdpSocket, SocketAddr, IpAddr, Ipv4Addr};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use crate::{HshError, Result, net};
 
@@ -11,7 +11,7 @@ pub struct Candidates {
 
 impl Candidates {
   pub fn gather(socket: &UdpSocket, port: u16) -> Self {
-    let loopback: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+    let loopback = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127,0,0,1)), port);
 
     let lan = net::get_lan_ip()
                .and_then(|ip| format!("{ip}:{port}")
@@ -82,6 +82,10 @@ impl Candidates {
     Ok(addrs)
   }
 
+  // target: 192.168.1.5
+  // target: 50.50.50.50:5000
+  // target: None
+  // target: 127.0.0.1:6969
   pub fn resolve_target(target: &str) -> Result<Vec<SocketAddr>> {
     let target = target.trim();
 
@@ -93,27 +97,6 @@ impl Candidates {
         .map(|addr| vec![addr])
         .map_err(|_| HshError::InvalidLink)
     }
-  }
-
-  pub fn show(&self) {
-    println!("  * loopback: {}", self.loopback);
-
-    if let Some(lan) = self.lan {
-      println!("  * lan: {lan}");
-    } else {
-      println!("  ! lan: offline");
-    }
-
-    if let Some(public) = self.public {
-      println!("> discovered public nat endpoint: \x1b[1;32m{public}\x1b[0m");
-    } else {
-      println!("> nat discovery failed or skipped.");
-    }
-
-    let raw_link    = self.to_base64();
-    let styled_link = format!("\x1b[4;36m{raw_link}\x1b[0m");
-
-    println!("> share this link with your peer:\n{styled_link}\n");
   }
 }
 
