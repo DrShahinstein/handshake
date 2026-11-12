@@ -42,9 +42,12 @@ $ handshake punch
   * lan: 192.168.1.3:6969
 > discovered public nat endpoint: 82.14.99.42:58293
 > share this link with your peer:
-  handshake://<base64-link-information>
-> paste your peer's link:
-  handshake://<base64-link-information>
+  handshake://<base64-candidates>
+
+>> paste your peer's handshake link or endpoint: 
+  # [x] handshake://<base64-candidates> --> [192.168.1.7:4545, 48.21.7.10:44012]
+  # [ ] 192.168.1.7:4545
+  # [ ] 48.21.7.10:44012
 
 ...punching lan 192.168.1.7:4545
 ...punching public 48.21.7.10:44012
@@ -54,13 +57,13 @@ $ handshake punch
 
 PeerB
 ```
-$ handshake punch -p 4545 <peerA_base64>
+$ handshake punch -p 4545 <peerA-base64-candidates>
 > bound to 0.0.0.0:4545
   * loopback: 127.0.0.1:4545
   * lan: 192.168.1.7:4545
 > discovered public nat endpoint: 48.21.7.10:44012
 > share this link with your peer:
-  handshake://<base64-link-information>
+  handshake://<base64-candidates>
 
 ...punching lan 192.168.1.3:6969
 ...punching public 82.14.99.42:58293
@@ -68,25 +71,18 @@ $ handshake punch -p 4545 <peerA_base64>
 ...connected to peer-a
 ```
 
-Peers exchange their base64 links. This can be done through any kind of communication. Using Telegram/WhatsApp etc. or even talking to each other physically, why not.  
+Peers exchange their base64 links. This can be done through any kind of communication. Using Telegram/WhatsApp etc. or even talking to each other physically, why not. This is the stage referred to in the literature as "signaling."  
 
 ### Base64 Link & Candidates
 
-`<base64-link-information>` could look like:
+`<base64-candidates>` could look like:
 ```
-{
-  "candidates": [
-    "192.168.1.3:6969",
-    "82.14.99.42:58293"
-  ],
-  "name": "peer-a",
-  "version": 1
-}
+192.168.1.3:6969,82.14.99.42:58293
 ```
 
 Corresponding to:  
 ```
-handshake://ewogICJjYW5kaWRhdGVzIjogWwogICAgIjE5Mi4xNjguMS4zOjY5NjkiLAogICAgIjgyLjE0Ljk5LjQyOjU4MjkzIgogIF0sCiAgIm5hbWUiOiAicGVlci1hIiwKICAidmVyc2lvbiI6IDEKfQ==
+handshake://MTkyLjE2OC4xLjM6Njk2OSw4Mi4xNC45OS40Mjo1ODI5Mw==
 ```
 
 Both peers probe every address in the list, creating benign race condition:
@@ -96,12 +92,12 @@ Both peers probe every address in the list, creating benign race condition:
 > FOR addr IN peer_addrs:
 >   PROBE addr
 
-# Iteration1 (lan):     Probing 192.168.1.3:6969
-# Iteration2 (public):  Probing 82.14.99.42:58293
+# Iteration1 (lan):      Probing 192.168.1.3:6969
+# Iteration2 (public):   Probing 82.14.99.42:58293
 # ...
 ```
 
-Whichever responds back earlier, the connection is held upon it.  
+Whichever responds back earlier, the connection is held upon it. Probing loopback is a logic error and unnecessary so it is avoided.  
 
 This approach is referred to as candidates, freeing us from considering each specific network edge case manually. 
 Also makes room for potential IPv6 fallback implementation in the future. 
@@ -110,6 +106,9 @@ So, it is preferable in many ways for its flexibility.
 
 Refer to [P2P Comm. Across NAT, section3.2](https://pdos.csail.mit.edu/papers/p2pnat.pdf)
 > ...Nevertheless, hole punching works automatically in all of these scenarios without the application having to know the specific network organization.
+
+But, of course, you can just run `handshake punch 82.14.99.42:58293` as well.  
+Candidates is a generic way to blindly copy/paste and be sure it will work.  
 
 # Protocol
 
