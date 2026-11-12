@@ -98,5 +98,18 @@ impl Candidates {
         .map_err(|_| HshError::InvalidLink)
     }
   }
+
+  // the announced link is a snapshot of the nat mapping.
+  // waiting at the prompt sends nothing, so the mapping may expire and
+  // come back on a different port, leaving the shared link stale.
+  // returns (announced, current) only when the endpoint actually moved.
+  pub fn recheck_public(&mut self, socket: &UdpSocket) -> Option<(SocketAddr, SocketAddr)> {
+    let announced = self.public?;
+    let current   = net::stun::discover(socket).ok()?;
+
+    self.public = Some(current);
+
+    (current != announced).then_some((announced, current))
+  }
 }
 
