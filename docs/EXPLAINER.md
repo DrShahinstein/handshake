@@ -267,9 +267,14 @@ Which is common and fine to see.
 ## Conclusion
 In theory, establishing a connection between peers behind Cone NATs should be straightforward. In reality, variables like OS firewalls, aggressive NAT timeouts, timing skews, and unpredictable CGNAT behavior mean a 100% connection guarantee is impossible. Within these everyday constraints, the project tries to maximize P2P connectivity purely using local resources—without taking on any hosting overhead or relay server costs.  
 
-So far I've managed to see p2p:
-* is held between my home network and mobile data service giving hotspot to my laptop.  
-*  
+### Field Observations
+
+| Peers | pystun3 | Result |
+| :--- | :--- | :--- |
+| my home network ↔ friend's home network, different city | cone ↔ cone | works |
+| my home network ↔ mobile data hotspot on my laptop | cone ↔ symmetric | sometimes works, sometimes doesn't work |
+
+I need to understand why and how the second one is even able to work. This section is going to be updated later.  
 
 ## References to Note
 * https://pdos.csail.mit.edu/papers/p2pnat.pdf (2005)
