@@ -6,7 +6,7 @@ use crate::{HshError, Result};
 
 const RETRY_INTERVAL: Duration = Duration::from_millis(250);
 const CONFIRM_GRACE: Duration  = Duration::from_millis(500);
-const MAX_ATTEMPTS: usize      = 120;
+const PUNCH_TIMEOUT: Duration  = Duration::from_secs(180);
 
 struct PunchCtx {
   addr: Option<SocketAddr>,
@@ -34,10 +34,11 @@ fn punch_loop(socket: &UdpSocket, peer_addrs: &[SocketAddr]) -> Result<SocketAdd
     println!("...punching {addr}");
   }
 
-  let syn     = Frame::syn();
-  let mut ctx = PunchCtx::new();
+  let syn      = Frame::syn();
+  let mut ctx  = PunchCtx::new();
+  let deadline = Instant::now() + PUNCH_TIMEOUT;
 
-  for _ in 0..MAX_ATTEMPTS {
+  while Instant::now() < deadline {
     if ctx.confirmed_at.is_none() {
       ctx.send_syn(socket, peer_addrs, &syn);
     }
