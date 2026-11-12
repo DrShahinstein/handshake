@@ -12,11 +12,11 @@ pub fn punch(port: u16, target: Option<&str>) -> Result<()> {
   println!("> bound to 0.0.0.0:{port}");
 
   let candidates = Candidates::gather(&socket, port);
-  candidates.show();
+  show(&candidates);
 
   let input = match target {
     Some(target) => target.to_string(),
-    None         => read_peer_link()?,
+    None         => read_peer()?,
   };
 
   let peer_addrs = Candidates::resolve_target(&input)?;
@@ -40,9 +40,8 @@ pub fn version() -> Result<()> {
 
 /* - - - */
 
-/* internal helper */
-fn read_peer_link() -> Result<String> {
-  print!("> paste your peer's link: ");
+fn read_peer() -> Result<String> {
+  print!(">> paste your peer's handshake link or endpoint: ");
   io::stdout().flush()?;
 
   let mut link = String::new();
@@ -54,5 +53,26 @@ fn read_peer_link() -> Result<String> {
   }
 
   Ok(link)
+}
+
+fn show(cnds: &Candidates) {
+  println!("  * loopback: {}", cnds.loopback);
+
+  if let Some(lan) = cnds.lan {
+    println!("  * lan: {lan}");
+  } else {
+    println!("  ! lan: offline");
+  }
+
+  if let Some(public) = cnds.public {
+    println!("> discovered public nat endpoint: \x1b[1;32m{public}\x1b[0m");
+  } else {
+    println!("> nat discovery failed or skipped.");
+  }
+
+  let raw_link    = cnds.to_base64();
+  let styled_link = format!("\x1b[4;36m{raw_link}\x1b[0m");
+
+  println!("> share this link with your peer:\n{styled_link}\n");
 }
 
