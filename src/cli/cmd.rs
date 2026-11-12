@@ -1,5 +1,5 @@
 use std::io::{self, Write};
-use std::net::UdpSocket;
+use std::net::{SocketAddr, UdpSocket};
 use crate::{
   HshError, Result, cli,
   net::{self, candidate::Candidates},
@@ -11,13 +11,17 @@ pub fn punch(port: u16, target: Option<&str>) -> Result<()> {
 
   println!("> bound to 0.0.0.0:{port}");
 
-  let candidates = Candidates::gather(&socket, port);
+  let mut candidates = Candidates::gather(&socket, port);
   show(&candidates);
 
   let input = match target {
     Some(target) => target.to_string(),
     None         => read_peer()?,
   };
+
+  if let Some((announced, current)) = candidates.recheck_public(&socket) {
+    show_drift(announced, current, &candidates);
+  }
 
   let peer_addrs = Candidates::resolve_target(&input)?;
   let peer_addr  = net::punch::start(&socket, &peer_addrs)?;
@@ -74,5 +78,16 @@ fn show(cnds: &Candidates) {
   let styled_link = format!("\x1b[4;36m{raw_link}\x1b[0m");
 
   println!("> share this link with your peer:\n{styled_link}\n");
+}
+
+fn show_drift(announced: SocketAddr, current: SocketAddr, cnds: &Candidates) {
+  println!();
+  println!("! public endpoint moved: \x1b[90m{announced}\x1b[0m -> \x1b[1;32m{current}\x1b[0m");
+  println!("  your shared link is now stale; this attempt may fail.");
+
+  let raw_link    = cnds.to_base64();
+  let styled_link = format!("\x1b[4;36m{raw_link}\x1b[0m");
+
+  println!("> fresh link:\n{styled_link}\n");
 }
 
