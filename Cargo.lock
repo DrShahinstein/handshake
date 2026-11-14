@@ -508,6 +508,7 @@ dependencies = [
  "blake3",
  "crossterm",
  "derive-new",
+ "getrandom 0.3.4",
  "num_enum",
  "ratatui",
  "thiserror 2.0.21",
