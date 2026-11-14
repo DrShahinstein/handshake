@@ -26,6 +26,12 @@ pub enum HshError {
   #[error("Invalid handshake link.")]
   InvalidLink,
 
+  #[error("STUN discovery failed: no server replied.")]
+  StunNoReply,
+
+  #[error("STUN discovery failed: no system entropy available.")]
+  StunEntropy,
+
   #[error("Handshake failed: expected ACK frame.")]
   ExpectedAck,
 }
