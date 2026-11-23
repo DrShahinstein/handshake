@@ -74,10 +74,7 @@ fn show(cnds: &Candidates) {
     println!("> nat discovery failed or skipped.");
   }
 
-  let raw_link    = cnds.to_base64();
-  let styled_link = format!("\x1b[4;36m{raw_link}\x1b[0m");
-
-  println!("> share this link with your peer:\n{styled_link}\n");
+  show_link("share this link with your peer", cnds);
 }
 
 fn show_drift(announced: SocketAddr, current: SocketAddr, cnds: &Candidates) {
@@ -85,9 +82,12 @@ fn show_drift(announced: SocketAddr, current: SocketAddr, cnds: &Candidates) {
   println!("! public endpoint moved: \x1b[90m{announced}\x1b[0m -> \x1b[1;32m{current}\x1b[0m");
   println!("  your shared link is now stale; this attempt may fail.");
 
-  let raw_link    = cnds.to_base64();
-  let styled_link = format!("\x1b[4;36m{raw_link}\x1b[0m");
-
-  println!("> fresh link:\n{styled_link}\n");
+  show_link("fresh link", cnds);
 }
 
+fn show_link(label: &str, cnds: &Candidates) {
+  let link   = cnds.to_base64();
+  let styled = format!("\x1b[4;36m{link}\x1b[0m");
+
+  println!("> {label}:\n{styled}\n");
+}
