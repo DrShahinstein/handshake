@@ -1,8 +1,8 @@
 use std::io::{self, Write};
 use std::net::{SocketAddr, UdpSocket};
 use crate::{
-  HshError, Result, cli,
-  net::{self, candidate::Candidates},
+  HshError, Result, cli, ui,
+  net::{self, candidate::Candidates, session::SessionCtx},
 };
 
 pub fn punch(port: u16, target: Option<&str>) -> Result<()> {
@@ -25,10 +25,10 @@ pub fn punch(port: u16, target: Option<&str>) -> Result<()> {
 
   let peer_addrs = Candidates::resolve_target(&input)?;
   let peer_addr  = net::punch::start(&socket, &peer_addrs)?;
+  let session    = SessionCtx::new(socket, peer_addr);
+  let events     = session.start()?;
 
-  net::session::start(socket, peer_addr)?;
-
-  Ok(())
+  ui::start(peer_addr, events)
 }
 
 pub fn help() -> Result<()> {
