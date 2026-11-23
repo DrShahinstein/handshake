@@ -11,11 +11,12 @@ pub mod candidate;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use derive_new::new;
-use crate::Result;
+use crate::{HshError, Result};
+use std::io::{Error, ErrorKind};
 use std::net::{UdpSocket, SocketAddr};
 
-pub const INITIAL_SEQ_ID: u32 = 1;
-pub const LINK_PREFIX: &str   = "handshake://";
+pub const NULL_SEQ_ID: u32   = 0;
+pub const LINK_PREFIX: &str = "handshake://";
 
 #[repr(u8)]
 #[derive(Copy,Clone,Debug,Eq,PartialEq,IntoPrimitive,TryFromPrimitive)]
@@ -27,8 +28,10 @@ pub enum Status {
 #[repr(u8)]
 #[derive(Copy,Clone,Debug,Eq,PartialEq,IntoPrimitive,TryFromPrimitive)]
 pub enum FrameType {
-  Syn=1,
-  Ack=2,
+  Syn,
+  Ack,
+  Ping,
+  Pong,
 }
 
 #[derive(Debug,Clone,PartialEq,new)]
@@ -43,13 +46,10 @@ impl Frame {
   pub const MAGIC_BYTES: &[u8;3] = b"HSH";
   pub const HEADER_SIZE: usize   = 13;
 
-  pub fn syn() -> Self {
-    Self::new(FrameType::Syn, Status::OK, INITIAL_SEQ_ID, vec![])
-  }
-
-  pub fn ack(seq_id: u32) -> Self {
-    Self::new(FrameType::Ack, Status::OK, seq_id, vec![])
-  }
+  pub fn syn()  -> Self { Self::new(FrameType::Syn,  Status::OK, NULL_SEQ_ID, vec![]) }
+  pub fn ack()  -> Self { Self::new(FrameType::Ack,  Status::OK, NULL_SEQ_ID, vec![]) }
+  pub fn ping() -> Self { Self::new(FrameType::Ping, Status::OK, NULL_SEQ_ID, vec![]) }
+  pub fn pong() -> Self { Self::new(FrameType::Pong, Status::OK, NULL_SEQ_ID, vec![]) }
 
   pub fn payload_len(&self) -> u32 {
     self.payload.len() as u32
@@ -129,6 +129,14 @@ pub fn recv_frame(socket: &UdpSocket) -> Result<(Frame, SocketAddr)> {
   }
 }
 
+pub fn recv_frame_or_timeout(socket: &UdpSocket) -> Result<Option<(Frame, SocketAddr)>> {
+  match recv_frame(socket) {
+    Ok(frame) => Ok(Some(frame)),
+    Err(HshError::IoErr(err)) if is_timeout(&err) => Ok(None),
+    Err(err) => Err(err),
+  }
+}
+
 // udp routing table lookup trick
 pub fn get_lan_ip() -> Option<String> {
   let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
@@ -136,3 +144,6 @@ pub fn get_lan_ip() -> Option<String> {
   socket.local_addr().ok().map(|addr| addr.ip().to_string())
 }
 
+fn is_timeout(err: &Error) -> bool {
+  matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)
+}
