@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod net;
+pub mod ui;
 
 use thiserror::Error;
 
@@ -34,6 +35,9 @@ pub enum HshError {
 
   #[error("Handshake failed: expected ACK frame.")]
   ExpectedAck,
+
+  #[error("Keepalive failed: peer stayed silent.")]
+  PeerSilent,
 }
 
 pub type Result<T> = std::result::Result<T, HshError>;
