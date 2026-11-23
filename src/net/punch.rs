@@ -1,7 +1,6 @@
-use std::io::{Error, ErrorKind};
 use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
-use crate::net::{self, Frame, FrameType, INITIAL_SEQ_ID, Status};
+use crate::net::{self, Frame, FrameType, Status};
 use crate::{HshError, Result};
 
 const RETRY_INTERVAL: Duration = Duration::from_millis(250);
@@ -43,7 +42,7 @@ fn punch_loop(socket: &UdpSocket, peer_addrs: &[SocketAddr]) -> Result<SocketAdd
       ctx.send_syn(socket, peer_addrs, &syn);
     }
 
-    while let Some((frame, src)) = recv_frame_or_timeout(socket)? {
+    while let Some((frame, src)) = net::recv_frame_or_timeout(socket)? {
       ctx.handle_frame(socket, frame, src);
     }
 
@@ -77,13 +76,14 @@ impl PunchCtx {
     }
 
     match frame.frame_type {
-      FrameType::Syn => self.handle_syn(socket, frame, src),
-      FrameType::Ack => self.handle_ack(frame),
+      FrameType::Syn => self.handle_syn(socket, src),
+      FrameType::Ack => self.handle_ack(),
+      __other__      => {},
     }
   }
 
-  fn handle_syn(&mut self, socket: &UdpSocket, frame: Frame, src: SocketAddr) {
-    let ack = Frame::ack(frame.seq_id);
+  fn handle_syn(&mut self, socket: &UdpSocket, src: SocketAddr) {
+    let ack = Frame::ack();
 
     self.record_send(net::send_frame_to(socket, &ack, src));
 
@@ -95,11 +95,9 @@ impl PunchCtx {
     self.confirm_if_ready();
   }
 
-  fn handle_ack(&mut self, frame: Frame) {
-    if frame.seq_id == INITIAL_SEQ_ID {
-      self.syn_acked = true;
-      self.confirm_if_ready();
-    }
+  fn handle_ack(&mut self) {
+    self.syn_acked = true;
+    self.confirm_if_ready();
   }
 
   fn confirm_if_ready(&mut self) {
@@ -137,18 +135,3 @@ impl PunchCtx {
     Err(HshError::ExpectedAck)
   }
 } // impl end
-
-/* - - - */
-
-fn recv_frame_or_timeout(socket: &UdpSocket) -> Result<Option<(Frame, SocketAddr)>> {
-  match net::recv_frame(socket) {
-    Ok(frame) => Ok(Some(frame)),
-    Err(HshError::IoErr(err)) if is_timeout(&err) => Ok(None),
-    Err(err) => Err(err),
-  }
-}
-
-fn is_timeout(err: &Error) -> bool {
-  matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)
-}
-
