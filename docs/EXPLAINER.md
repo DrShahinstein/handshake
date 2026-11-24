@@ -251,18 +251,18 @@ A relay would make every row work, but then your files go through someone else's
 
 The cone and symmetric names above are the classic RFC 3489 vocabulary. 
 Modern practice uses some new terms I'll briefly address. 
-The reason I made explanations referring to obsolete names was because they are easier to picture.  
+The reason I've made explanations referring to obsolete names so far was because they are easier to picture.  
 
 Remember what a NAT does:  
 * Mapping — does one local socket get one public endpoint for every destination?
 * Filtering — which outside hosts may send back through an existing mapping?
 
-You can use <https://github.com/jselbie/stunserver>.  
+As for finding it out, you can use <https://github.com/jselbie/stunserver>.  
 ```
 $ git clone https://github.com/jselbie/stunserver && cd stunserver
 $ make 
 $ ./stunclient --mode behavior  --localport 6969 stunserver2025.stunprotocol.org
-$ ./stunclient --mode filtering --localport 4444 stunserver2025.stunprotocol.org
+$ ./stunclient --mode filtering --localport 6969 stunserver2025.stunprotocol.org
 ```
 
 Result in my case:  
@@ -282,10 +282,14 @@ Nat filtering: Address and Port Dependent Filtering
 Filtering is rarely the blocker. Once we send a packet to the peer's exact
 endpoint, the filter allows replies from that endpoint. If the peer's mapping
 is stable, its replies do come from there; if the mapping is unstable, the
-wrong port is the problem, not the filter.
+wrong port is the problem, not the filter.  
+
+To put it simply, NAT's mapping is the one that actually matters. The EIM type corresponds to "cone-nat" behavior; which is the one that we like.  
 
 ## Conclusion
 In theory, establishing a connection between peers behind Cone NATs should be straightforward. In reality, variables like OS firewalls, aggressive NAT timeouts, timing skews, and unpredictable CGNAT behavior mean a 100% connection guarantee is impossible. Within these everyday constraints, the project tries to maximize P2P connectivity purely using local resources—without taking on any hosting overhead or relay server costs.  
+
+As of the project's 100th commit, I've confirmed that I could establish a P2P connection between myself and a friend in another city, as well as between my mobile data connection and my home internet connection. In short, if you experience the cone-nat behavior commonly seen in residential networks, it will most likely work for you as well.  
 
 ## References to Note
 * https://pdos.csail.mit.edu/papers/p2pnat.pdf (2005)
