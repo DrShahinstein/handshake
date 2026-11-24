@@ -247,36 +247,49 @@ Most home broadband behaves like port-restricted cone, and two of those can punc
 
 A relay would make every row work, but then your files go through someone else's machine and someone pays for the bandwidth. That is the cheating we keep talking about. We would rather fail on the hard NAT combinations than call a relayed connection peer-to-peer.  
 
-#### -- Testing --
+#### -- How to find out NAT behavior? --
 
-If you wonder what might be your NAT's behavior, `pystun3` is a thing.  
+The cone and symmetric names above are the classic RFC 3489 vocabulary. 
+Modern practice uses some new terms I'll briefly address. 
+The reason I made explanations referring to obsolete names was because they are easier to picture.  
 
+Remember what a NAT does:  
+* Mapping — does one local socket get one public endpoint for every destination?
+* Filtering — which outside hosts may send back through an existing mapping?
+
+You can use <https://github.com/jselbie/stunserver>.  
 ```
-$ python3 -m venv anyenv
-$ source ./bin/activate
-$ pip install pystun3
-$ pystun3
+$ git clone https://github.com/jselbie/stunserver && cd stunserver
+$ make 
+$ ./stunclient --mode behavior  --localport 6969 stunserver2025.stunprotocol.org
+$ ./stunclient --mode filtering --localport 4444 stunserver2025.stunprotocol.org
 ```
 
-It gave me this in my case:  
-<img width="356" height="179" alt="Image" src="https://github.com/user-attachments/assets/fbfa0b7b-c06f-4282-ae69-345868a2db05" />
+Result in my case:  
+<img width="313" height="158" alt="image" src="https://github.com/user-attachments/assets/f1de7c34-8930-4b9e-898f-cc3cfc8f81f7" />
 
-We can see from this that I probably have cone NAT as well as many residential users, specifically the most common type port-restricted. 
-Which is common and fine to see.  
+Read the result in this order:
+```
+Nat behavior:  Endpoint Independent Mapping        -> punch-friendly (cone-nat behavior, the one that we like)
+Nat behavior:  Address Dependent Mapping           -> hard
+Nat behavior:  Address and Port Dependent Mapping  -> hardest
+---
+Nat filtering: Endpoint Independent Filtering
+Nat filtering: Address Dependent Filtering
+Nat filtering: Address and Port Dependent Filtering
+```
+
+Filtering is rarely the blocker. Once we send a packet to the peer's exact
+endpoint, the filter allows replies from that endpoint. If the peer's mapping
+is stable, its replies do come from there; if the mapping is unstable, the
+wrong port is the problem, not the filter.
 
 ## Conclusion
 In theory, establishing a connection between peers behind Cone NATs should be straightforward. In reality, variables like OS firewalls, aggressive NAT timeouts, timing skews, and unpredictable CGNAT behavior mean a 100% connection guarantee is impossible. Within these everyday constraints, the project tries to maximize P2P connectivity purely using local resources—without taking on any hosting overhead or relay server costs.  
 
-### Field Observations
-
-| Peers | pystun3 | Result |
-| :--- | :--- | :--- |
-| my home network ↔ friend's home network, different city | cone ↔ cone | works |
-| my home network ↔ mobile data hotspot on my laptop | cone ↔ symmetric | sometimes works, sometimes doesn't work |
-
-I need to understand why and how the second one is even able to work. This section is going to be updated later.  
-
 ## References to Note
 * https://pdos.csail.mit.edu/papers/p2pnat.pdf (2005)
+* https://www.rfc-editor.org/rfc/rfc4787 (2006)
+* https://www.rfc-editor.org/rfc/rfc5780 (2010)
 * https://tailscale.com/blog/how-nat-traversal-works (2020)
 
