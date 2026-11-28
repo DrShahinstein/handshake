@@ -1,64 +1,90 @@
 use std::net::{SocketAddr, UdpSocket};
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
-use std::time::{Duration};
-use derive_new::new;
+use std::time::Duration;
 use crate::{net, HshError, Result};
 
-const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(5);
-const PEER_TIMEOUT:       Duration = Duration::from_secs(15);
+const PING_EVERY: Duration = Duration::from_secs(5);
+const MISSED_PINGS: u8     = 3;
 
-#[derive(new)]
-pub struct SessionCtx {
+#[derive(Debug)]
+enum SessionEvent {
+  Frame(net::Frame),
+  PeerSilent,
+  Failed(HshError),
+}
+
+pub struct Session {
   socket: UdpSocket,
   peer_addr: SocketAddr,
+  events: Receiver<SessionEvent>,
 }
 
-impl SessionCtx {
-  pub fn start(&self) -> Result<Receiver<HshError>> {
-    println!("\n> starting session with peer at {}", self.peer_addr);
-    self.keepalive()
-  }
-
-  fn keepalive(&self) -> Result<Receiver<HshError>> {
-    self.socket.set_read_timeout(Some(PEER_TIMEOUT))?;
-
-    let (tx,rx) = mpsc::channel();
-
-    let socket1 = Self::new(self.socket.try_clone()?, self.peer_addr);
-    let socket2 = Self::new(self.socket.try_clone()?, self.peer_addr);
+impl Session {
+  pub fn start(socket: UdpSocket, peer_addr: SocketAddr) -> Result<Self> {
+    let reader   = socket.try_clone()?;
+    let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-      if let Err(e) = socket1.ping() {
-        eprintln!("{e}");
+      if let Err(err) = listen(reader, peer_addr, &tx) {
+        let _ = tx.send(SessionEvent::Failed(err));
       }
     });
 
-    thread::spawn(move || {
-      if let Err(e) = socket2.pong() {
-        let _ = tx.send(e);
-      }
-    });
-
-    Ok(rx)
+    Ok(Self { socket, peer_addr, events: rx })
   }
 
-  fn ping(&self) -> Result<()> {
-    loop {
-      thread::sleep(KEEPALIVE_INTERVAL);
-      net::send_frame_to(&self.socket, &net::Frame::ping(), self.peer_addr)?;
+  pub fn send(&self, frame: &net::Frame) -> Result<()> {
+    net::send_frame_to(&self.socket, frame, self.peer_addr)
+  }
+
+  pub fn poll(&self) -> Result<Option<net::Frame>> {
+    match self.events.try_recv() {
+      Ok(SessionEvent::Frame(frame))        => Ok(Some(frame)),
+      Ok(SessionEvent::PeerSilent)          => Err(HshError::PeerSilent),
+      Ok(SessionEvent::Failed(err))         => Err(err),
+      Err(mpsc::TryRecvError::Empty)        => Ok(None),
+      Err(mpsc::TryRecvError::Disconnected) => Err(HshError::PeerSilent),
     }
   }
 
-  fn pong(&self) -> Result<()> {
-    loop {
-      let Some((frame, src)) = net::recv_frame_or_timeout(&self.socket)? else {
-        return Err(HshError::PeerSilent);
-      };
+  pub fn peer_addr(&self) -> SocketAddr {
+    self.peer_addr
+  }
+}
 
-      if frame.frame_type == net::FrameType::Ping {
-        net::send_frame_to(&self.socket, &net::Frame::pong(), src)?;
+fn listen(socket: UdpSocket, peer_addr: SocketAddr, tx: &Sender<SessionEvent>) -> Result<()> {
+  socket.set_read_timeout(Some(PING_EVERY))?;
+
+  let mut missed = 0;
+
+  loop {
+    match net::recv_frame_or_timeout(&socket)? {
+      Some((frame, src)) if src == peer_addr => {
+        missed = 0;
+
+        match frame.frame_type {
+          net::FrameType::Ping => net::send_frame_to(&socket, &net::Frame::pong(), peer_addr)?,
+          net::FrameType::Pong => {}
+          _ => {
+            if tx.send(SessionEvent::Frame(frame)).is_err() {
+              return Ok(());
+            }
+          }
+        }
+      }
+      Some(_) => {} // stray packet from another address
+      None => {
+        missed += 1;
+
+        if missed >= MISSED_PINGS {
+          let _ = tx.send(SessionEvent::PeerSilent);
+          return Ok(());
+        }
+
+        net::send_frame_to(&socket, &net::Frame::ping(), peer_addr)?;
       }
     }
   }
 }
+
