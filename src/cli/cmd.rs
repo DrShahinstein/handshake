@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::net::{SocketAddr, UdpSocket};
 use crate::{
   HshError, Result, cli, ui,
-  net::{self, candidate::Candidates, session::SessionCtx},
+  net::{self, candidate::Candidates, session::Session},
 };
 
 pub fn punch(port: u16, target: Option<&str>) -> Result<()> {
@@ -25,10 +25,9 @@ pub fn punch(port: u16, target: Option<&str>) -> Result<()> {
 
   let peer_addrs = Candidates::resolve_target(&input)?;
   let peer_addr  = net::punch::start(&socket, &peer_addrs)?;
-  let session    = SessionCtx::new(socket, peer_addr);
-  let events     = session.start()?;
+  let session    = Session::start(socket, peer_addr)?;
 
-  ui::start(peer_addr, events)
+  ui::start(session)
 }
 
 pub fn help() -> Result<()> {
@@ -91,3 +90,4 @@ fn show_link(label: &str, cnds: &Candidates) {
 
   println!("> {label}:\n{styled}\n");
 }
+
