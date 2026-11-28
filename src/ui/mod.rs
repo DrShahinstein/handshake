@@ -1,12 +1,15 @@
-use std::net::SocketAddr;
-use std::sync::mpsc::Receiver;
-use crate::{HshError, Result};
+use std::thread;
+use std::time::Duration;
+use crate::{Result, net::session::Session};
 
-pub fn start(peer: SocketAddr, events: Receiver<HshError>) -> Result<()> {
-  println!("\nTODO: ui with peer {peer}");
+const UI_TICK: Duration = Duration::from_millis(50);
 
-  match events.recv() {
-    Ok(e)  => Err(e),
-    Err(_) => Ok(()),
+pub fn start(session: Session) -> Result<()> {
+  println!("\nTODO: ui with peer {}", session.peer_addr());
+
+  loop {
+    let _ = session.poll()?;
+    thread::sleep(UI_TICK);
   }
 }
+
